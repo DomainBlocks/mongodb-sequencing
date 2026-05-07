@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
 using NUnit.Framework;
@@ -8,7 +9,7 @@ namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
 public class MongoSequencedAppenderConcurrencyTests
 {
-    private const int TestTimeoutMillis = 30 * 1_000;
+    private const int TestTimeoutMillis = 10 * 1_000;
     private const int AppenderCount = 5;
     private const string TestDbPrefix = "seq_test_";
 
@@ -16,7 +17,8 @@ public class MongoSequencedAppenderConcurrencyTests
     private string _databaseName = null!;
     private CollectionNamespace _seqNs = null!;
     private CollectionNamespace _targetNs = null!;
-    private MongoSequencedAppender<TestDoc, object>[] _appenders = null!;
+    private MongoSequencedAppender<TargetDoc, object>[] _appenders = null!;
+    private ILoggerFactory _loggerFactory = null!;
 
     [SetUp]
     public async Task SetUp()
@@ -26,19 +28,27 @@ public class MongoSequencedAppenderConcurrencyTests
         _seqNs = new CollectionNamespace(_databaseName, "sequences");
         _targetNs = new CollectionNamespace(_databaseName, "targets");
 
+        _loggerFactory = LoggerFactory.Create(x => x
+            .AddSimpleConsole(opt =>
+            {
+                opt.IncludeScopes = true;
+                opt.TimestampFormat = "HH:mm:ss.fff ";
+            })
+            .SetMinimumLevel(LogLevel.Debug));
+
         // Ensure the target collection exists and has a unique index on sequence.
         var db = _mongoClient.GetDatabase(_databaseName);
         await db.CreateCollectionAsync(_targetNs.CollectionName);
 
-        var targetCollection = db.GetCollection<TestDoc>(_targetNs.CollectionName);
+        var targetCollection = db.GetCollection<TargetDoc>(_targetNs.CollectionName);
 
-        var indexModel = new CreateIndexModel<TestDoc>(
-            Builders<TestDoc>.IndexKeys.Ascending(x => x.Nested!.Sequence),
+        var indexModel = new CreateIndexModel<TargetDoc>(
+            Builders<TargetDoc>.IndexKeys.Ascending(x => x.Nested!.Sequence),
             new CreateIndexOptions { Unique = true });
 
         await targetCollection.Indexes.CreateOneAsync(indexModel);
 
-        _appenders = [.. Enumerable.Range(0, AppenderCount).Select(_ => CreateAppender())];
+        _appenders = [.. Enumerable.Range(0, AppenderCount).Select(CreateAppender)];
     }
 
     [TearDown]
@@ -60,6 +70,7 @@ public class MongoSequencedAppenderConcurrencyTests
         finally
         {
             cts.Dispose();
+            _loggerFactory.Dispose();
 
 #if !MONGO_DRIVER_V2
             _mongoClient.Dispose();
@@ -78,7 +89,7 @@ public class MongoSequencedAppenderConcurrencyTests
             .SelectMany((appender, i) => Enumerable
                 .Range(0, docsPerAppender)
                 .Select(j => appender.AppendAsync(
-                    [new TestDoc { Value = $"a{i}-d{j}" }],
+                    [new TargetDoc { Value = $"a{i}-d{j}" }],
                     context: new object(),
                     cancellationToken: ct)));
 
@@ -107,7 +118,7 @@ public class MongoSequencedAppenderConcurrencyTests
                 .Select(b => appender.AppendAsync(
                     Enumerable
                         .Range(0, docsPerBatch)
-                        .Select(d => new TestDoc { Value = $"a{i}-b{b}-d{d}" }),
+                        .Select(d => new TargetDoc { Value = $"a{i}-b{b}-d{d}" }),
                     context: new object(),
                     cancellationToken: ct)));
 
@@ -123,12 +134,12 @@ public class MongoSequencedAppenderConcurrencyTests
     }
 
     [Test]
-    [CancelAfter(TestTimeoutMillis)]
+    [CancelAfter(30_000)]
     [Explicit("Long running")]
     public async Task ConcurrentAppends_Sequence_IsStrictlyIncreasingAndContiguous_ChangeStreamRead(
         CancellationToken ct)
     {
-        const int runSeconds = 10;
+        const int runSeconds = 15;
         const int minObservedDocs = 100;
 
         var db = _mongoClient.GetDatabase(_databaseName);
@@ -171,7 +182,7 @@ public class MongoSequencedAppenderConcurrencyTests
                                 firstFailure ??= new ShouldAssertException(
                                     $"Sequence anomaly detected. Last={lastSeq.Value}, Current={seq}");
 
-                                // ReSharper disable once AccessToDisposedClosure - disposed when test method returns
+                                // ReSharper disable once AccessToDisposedClosure - observerTask awaited below
                                 await runCts.CancelAsync();
                                 return;
                             }
@@ -204,9 +215,9 @@ public class MongoSequencedAppenderConcurrencyTests
                     {
                         await appender.AppendAsync(
                             [
-                                new TestDoc { Value = $"w{i}-e{seq++}" },
-                                new TestDoc { Value = $"w{i}-e{seq++}" },
-                                new TestDoc { Value = $"w{i}-e{seq++}" }
+                                new TargetDoc { Value = $"w{i}-e{seq++}" },
+                                new TargetDoc { Value = $"w{i}-e{seq++}" },
+                                new TargetDoc { Value = $"w{i}-e{seq++}" }
                             ],
                             context: new object(),
                             cancellationToken: runToken);
@@ -227,32 +238,36 @@ public class MongoSequencedAppenderConcurrencyTests
             throw firstFailure;
     }
 
-    private MongoSequencedAppender<TestDoc, object> CreateAppender()
+    private MongoSequencedAppender<TargetDoc, object> CreateAppender(int index)
     {
-        var binding = new MongoSequenceBinding<TestDoc>(
+        var binding = new MongoSequenceBinding<TargetDoc>(
             sequenceCollectionNamespace: _seqNs,
             sequenceId: "test_seq",
             targetCollectionNamespace: _targetNs,
-            targetField: new ExpressionFieldDefinition<TestDoc, long>(x => x.Nested!.Sequence));
+            targetField: new ExpressionFieldDefinition<TargetDoc, long>(x => x.Nested!.Sequence));
 
-        return new MongoSequencedAppender<TestDoc, object>(_mongoClient, binding);
+        return new MongoSequencedAppender<TargetDoc, object>(
+            _mongoClient,
+            binding,
+            logger: _loggerFactory.CreateLogger($"appender_{index}"));
     }
 
     private async Task<long[]> ReadSequenceAsync(CancellationToken ct)
     {
         var db = _mongoClient.GetDatabase(_databaseName);
 
-        var collection = db.GetCollection<TestDoc>(_targetNs.CollectionName);
+        var collection = db.GetCollection<TargetDoc>(_targetNs.CollectionName);
 
         var docs = await collection
-            .Find(FilterDefinition<TestDoc>.Empty)
-            .Sort(Builders<TestDoc>.Sort.Ascending(x => x.Nested!.Sequence))
+            .Find(FilterDefinition<TargetDoc>.Empty)
+            .Sort(Builders<TargetDoc>.Sort.Ascending(x => x.Nested!.Sequence))
             .ToListAsync(ct);
 
         return [.. docs.Select(d => d.Nested!.Sequence)];
     }
 
-    private record TestDoc
+    // ReSharper disable all
+    private record TargetDoc
     {
         public ObjectId Id { get; init; }
 
@@ -263,6 +278,8 @@ public class MongoSequencedAppenderConcurrencyTests
 
     private record NestedDoc
     {
-        [BsonElement("seq")] public long Sequence { get; init; }
+        [BsonElement("seq")]
+        public long Sequence { get; init; }
     }
+    // ReSharper restore all
 }

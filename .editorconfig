@@ -1,0 +1,48 @@
+root = true
+
+# All files
+[*]
+max_line_length = 120
+indent_style = space
+insert_final_newline = false
+
+# C# files
+[*.cs]
+indent_size = 4
+tab_width = 4
+
+# Style preferences (sorted by option name)
+csharp_keep_existing_attribute_arrangement = true
+csharp_prefer_braces = when_multiline
+csharp_style_expression_bodied_methods = false
+csharp_style_expression_bodied_operators = false
+csharp_style_namespace_declarations = file_scoped
+csharp_style_var_for_built_in_types = true
+csharp_style_var_elsewhere = true
+csharp_style_var_when_type_is_apparent = true
+dotnet_style_parentheses_in_other_binary_operators = never_if_unnecessary
+dotnet_style_prefer_conditional_expression_over_return = false
+
+# Default severity of warning
+dotnet_analyzer_diagnostic.category-Style.severity = warning
+
+# Set severity level of specific rules (sorted by rule ID)
+dotnet_diagnostic.IDE0007.severity = suggestion # Use var instead of explicit type
+dotnet_diagnostic.IDE0010.severity = suggestion # Add missing cases to switch statement
+dotnet_diagnostic.IDE0022.severity = silent     # Use expression body for methods
+dotnet_diagnostic.IDE0023.severity = silent     # Use expression body for conversion operators
+dotnet_diagnostic.IDE0024.severity = silent     # Use expression body for operators
+dotnet_diagnostic.IDE0028.severity = suggestion # Use collection initializers or expressions
+dotnet_diagnostic.IDE0045.severity = suggestion # Use conditional expression for assignment
+dotnet_diagnostic.IDE0058.severity = silent     # Remove unnecessary expression value
+dotnet_diagnostic.IDE0061.severity = silent     # Use expression/block body for local function
+dotnet_diagnostic.IDE0065.severity = suggestion # Using directive placement
+dotnet_diagnostic.IDE0072.severity = suggestion # Add missing cases to switch expression
+dotnet_diagnostic.IDE0270.severity = suggestion # Null check can be simplified (if null check)
+dotnet_diagnostic.IDE0290.severity = suggestion # Use primary constructor
+dotnet_diagnostic.IDE0305.severity = suggestion # Use collection expression for fluent
+
+# Xml files
+[*.{xml,csproj,props}]
+indent_size = 2
+tab_width = 2

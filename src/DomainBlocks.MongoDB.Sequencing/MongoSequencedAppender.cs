@@ -200,7 +200,7 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
             }
             catch (MongoException ex) when (ex.HasErrorLabel(MongoErrorLabels.TransientTransactionError))
             {
-                _logger.LogTrace("Transient transaction error; retrying batch");
+                _logger.LogTrace("Transient transaction error; retrying batch (size={BatchSize})", batch.Count);
             }
         }
     }
