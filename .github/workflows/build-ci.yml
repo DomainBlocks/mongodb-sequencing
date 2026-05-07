@@ -1,0 +1,50 @@
+name: Build and Test
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start MongoDB Replica Set
+        run: docker compose up -d
+
+      - name: Make replica-set hostnames resolvable
+        run: |
+          echo "127.0.0.1 mongo1" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 mongo2" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 mongo3" | sudo tee -a /etc/hosts
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Wait for replica set primary
+        run: |
+          for i in {1..60}; do
+            if docker exec mongo1 mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q "true"; then
+              echo "Replica set ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Replica set not ready in time"
+          exit 1
+
+      - name: Run tests
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Stop MongoDB
+        if: always()
+        run: docker compose down

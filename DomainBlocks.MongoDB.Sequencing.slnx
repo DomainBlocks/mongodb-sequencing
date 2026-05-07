@@ -5,6 +5,9 @@
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
   </Folder>
+  <Folder Name="/scripts/">
+    <File Path="scripts/init-mongo-replica-set.sh" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/DomainBlocks.MongoDB.Sequencing.V2/DomainBlocks.MongoDB.Sequencing.V2.csproj" />
     <Project Path="src/DomainBlocks.MongoDB.Sequencing/DomainBlocks.MongoDB.Sequencing.csproj" />

@@ -51,11 +51,7 @@ public class MongoSequencedAppenderConcurrencyTests
 
         try
         {
-            var dbNames = await (await _mongoClient.ListDatabaseNamesAsync(cts.Token)).ToListAsync(cts.Token);
-            var testDbNames = dbNames.Where(name => name.StartsWith(TestDbPrefix));
-
-            foreach (var testDbName in testDbNames)
-                await _mongoClient.DropDatabaseAsync(testDbName, cts.Token);
+            await _mongoClient.DropDatabaseAsync(_databaseName, cts.Token);
         }
         catch (OperationCanceledException)
         {
