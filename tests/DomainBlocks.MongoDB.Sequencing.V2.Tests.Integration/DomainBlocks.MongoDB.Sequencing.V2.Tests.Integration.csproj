@@ -1,0 +1,23 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);MONGO_DRIVER_V2</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\DomainBlocks.MongoDB.Sequencing.V2\DomainBlocks.MongoDB.Sequencing.V2.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\DomainBlocks.MongoDB.Sequencing.Tests.Integration\**\*.cs"
+             Exclude="..\DomainBlocks.MongoDB.Sequencing.Tests.Integration\obj\**"
+             LinkBase="." />
+  </ItemGroup>
+  
+</Project>

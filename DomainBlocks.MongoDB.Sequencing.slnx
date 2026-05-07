@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/.solution/">
+    <File Path=".gitignore" />
+    <File Path="compose.yaml" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/DomainBlocks.MongoDB.Sequencing.V2/DomainBlocks.MongoDB.Sequencing.V2.csproj" />
+    <Project Path="src/DomainBlocks.MongoDB.Sequencing/DomainBlocks.MongoDB.Sequencing.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/DomainBlocks.MongoDB.Sequencing.Tests.Integration/DomainBlocks.MongoDB.Sequencing.Tests.Integration.csproj" />
+    <Project Path="tests/DomainBlocks.MongoDB.Sequencing.V2.Tests.Integration/DomainBlocks.MongoDB.Sequencing.V2.Tests.Integration.csproj" />
+  </Folder>
+</Solution>

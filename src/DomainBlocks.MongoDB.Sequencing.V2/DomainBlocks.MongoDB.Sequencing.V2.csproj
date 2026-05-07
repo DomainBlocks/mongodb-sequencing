@@ -1,0 +1,17 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <DefineConstants>$(DefineConstants);MONGO_DRIVER_V2</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MongoDB.Driver" VersionOverride="[2.27.0,3.0.0)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\DomainBlocks.MongoDB.Sequencing\**\*.cs"
+             Exclude="..\DomainBlocks.MongoDB.Sequencing\obj\**"
+             LinkBase="." />
+  </ItemGroup>
+
+</Project>
