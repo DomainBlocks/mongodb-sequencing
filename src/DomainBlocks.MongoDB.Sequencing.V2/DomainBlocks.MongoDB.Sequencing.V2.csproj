@@ -2,6 +2,7 @@
 
   <PropertyGroup>
     <DefineConstants>$(DefineConstants);MONGO_DRIVER_V2</DefineConstants>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>

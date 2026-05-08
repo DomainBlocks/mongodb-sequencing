@@ -8,7 +8,7 @@
     <NoWarn>CS1591</NoWarn>
 
     <IsPackable>false</IsPackable>
-    <PackageId>$(MSBuildProjectName).vNext</PackageId>
-    <PackageVersion>0.1.0-alpha.2</PackageVersion>
+    <PackageId>$(MSBuildProjectName)</PackageId>
+    <PackageVersion>0.1.0-alpha.1</PackageVersion>
   </PropertyGroup>
 </Project>
