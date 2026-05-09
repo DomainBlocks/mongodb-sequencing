@@ -32,7 +32,7 @@ public class EventStoreTests
     [SetUp]
     public async Task SetUp()
     {
-        _mongoClient = new MongoClient("mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet=rs0");
+        _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
         _databaseName = $"es_test_{Guid.NewGuid():N}";
         _eventStore = new EventStore(_mongoClient, _databaseName);
         await _eventStore.EnsureIndexesAsync();
@@ -118,7 +118,7 @@ public class EventStoreTests
         // First write to establish the stream.
         await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")]);
 
-        // Two concurrent writes both expecting version 0 — only one should succeed.
+        // Two concurrent writes both expecting version 0 - only one should succeed.
         var task1 = _eventStore.AppendAsync("order-1", [new OrderShipped("order-1")], expectedVersion: 0);
         var task2 = _eventStore.AppendAsync("order-1", [new OrderCancelled("order-1")], expectedVersion: 0);
 

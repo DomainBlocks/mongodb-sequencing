@@ -5,6 +5,7 @@
     <PackageReference Include="NUnit"/>
     <PackageReference Include="NUnit3TestAdapter"/>
     <PackageReference Include="Shouldly"/>
+    <PackageReference Include="Testcontainers.MongoDb" />
   </ItemGroup>
 
   <ItemGroup>
