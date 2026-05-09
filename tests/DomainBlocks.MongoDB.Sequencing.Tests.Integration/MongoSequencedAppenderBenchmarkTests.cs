@@ -77,8 +77,8 @@ public class MongoSequencedAppenderBenchmarkTests
     [CancelAfter(TestTimeoutMillis)]
     public async Task AppendAsync_SingleAppend_MeasureLatency(CancellationToken ct)
     {
-        const int warmupIterations = 10;
-        const int iterations = 100;
+        const int warmupIterations = 100;
+        const int iterations = 1000;
 
         await using var appender = CreateAppender();
 
@@ -113,7 +113,7 @@ public class MongoSequencedAppenderBenchmarkTests
     [CancelAfter(TestTimeoutMillis)]
     public async Task AppendAsync_MeasureThroughputCeiling(CancellationToken ct)
     {
-        const int appenderCount = 1;
+        const int appenderCount = 5;
         const int maxInFlight = 1000;
         const int warmUpSeconds = 3;
         const int measureSeconds = 15;
