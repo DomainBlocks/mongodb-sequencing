@@ -70,8 +70,7 @@ each batch is committed, and when a duplicate key conflict is detected on the ta
 - Stamping per-stream version numbers onto event documents before commit.
 - Implementing idempotent commits by detecting and skipping already-applied requests.
 - Completing requests early based on pre-commit validation.
-- Implementing optimistic concurrency checks - e.g. rejecting an append if an event stream version does not match an
-  expected version.
+- Implementing optimistic concurrency checks.
 
 ## Benchmarks
 
@@ -85,15 +84,17 @@ numbers for your setup.
 Each operation appends a single document, measured over 15 seconds after a 3-second warm-up. The following parameters
 were used:
 
-- **Max in-flight operations:** 1,000
+- **Max in-flight operations:** 1,000 total across all concurrent appender instances
 - **Batch size:** 500 (maximum append operations committed in a single transaction)
 - **Queue capacity:** 1,000 (maximum append operations buffered before callers block)
 
-| Concurrent appenders | Throughput (ops/sec) |
-|---------------------:|---------------------:|
-|                    1 |               65,502 |
-|                    3 |               46,464 |
-|                    5 |               30,126 |
+| Appender instance count* | Throughput (ops/sec) |
+|-------------------------:|---------------------:|
+|                        1 |               65,502 |
+|                        3 |               46,464 |
+|                        5 |               30,126 |
+
+\* Values greater than 1 indicate multiple appender instances issuing append operations concurrently.
 
 Throughput decreases as the number of concurrent appenders increases due to greater write conflict contention on the
 counter document, causing more transactions to abort and retry.
