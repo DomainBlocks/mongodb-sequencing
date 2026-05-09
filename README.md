@@ -20,9 +20,8 @@ inserted across multiple concurrent writers. This makes it difficult to:
 
 ## Use cases
 
-This library is particularly useful for introducing global ordering into an existing MongoDB-based event store, where
-events (represented by documents) must be consumable in a guaranteed total order by downstream event handlers and
-projections.
+This library is particularly useful for introducing global ordering into a MongoDB-based event store, where events (
+represented by documents) must be consumable in a guaranteed total order by downstream event handlers and projections.
 
 Such global sequencing enables reliable checkpointing when tailing an event collection via a change stream. Because
 historical reads and change stream observations share the same total order, transitioning from catch-up to live
