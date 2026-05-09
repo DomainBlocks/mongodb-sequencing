@@ -52,14 +52,14 @@ simultaneously, MongoDB's optimistic concurrency control ensures only one can co
 conflict and retries. This forces appends to serialize, eliminating any possibility of out-of-order sequence number
 assignment. The result is that sorting by sequence number reflects true insertion order across the entire collection.
 
-## Customising behaviour with a policy
+## Customizing behavior with a policy
 
 An `IMongoSequencedAppenderPolicy<TContext>` can be supplied to hook into the append pipeline at two points: before
 each batch is committed, and when a duplicate key conflict is detected on the target collection. Common uses include:
 
 - Stamping per-stream version numbers onto event documents before commit.
 - Implementing idempotent commits by detecting and skipping already-applied requests.
-- Failing requests early without hitting the database, based on pre-commit validation.
+- Completing requests early based on pre-commit validation.
 - Implementing optimistic concurrency checks - e.g. rejecting an append if an event stream version does not match an
   expected version.
 
@@ -101,3 +101,8 @@ operation.
 |    min |          1.0 |
 |    max |          5.5 |
 |   mean |          1.4 |
+
+## Example: implementing a simple event store
+
+See [SimpleEventStore](examples) for an example showing how to build a simple, globally ordered event store with this
+library.
