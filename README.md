@@ -20,8 +20,8 @@ inserted across multiple concurrent writers. This makes it difficult to:
 
 ## Use cases
 
-This library is particularly useful for introducing global ordering into a MongoDB-based event store, where events (
-represented by documents) must be consumable in a guaranteed total order by downstream event handlers and projections.
+This library is particularly useful for introducing global ordering into a MongoDB-based event store, where events
+(represented by documents) must be consumable in a guaranteed total order by downstream event handlers and projections.
 
 Such global sequencing enables reliable checkpointing when tailing an event collection via a change stream. Because
 historical reads and change stream observations share the same total order, transitioning from catch-up to live
@@ -72,8 +72,12 @@ numbers for your setup.
 
 ### Peak throughput
 
-Each operation appends a single document, with a maximum of 1,000 in-flight operations, a batch size of 500, and a queue
-capacity of 1,000, measured over 15 seconds after a 3 second warm-up.
+Each operation appends a single document, measured over 15 seconds after a 3-second warm-up. The following parameters
+were used:
+
+- **Max in-flight operations:** 1,000
+- **Batch size:** 500 (maximum append operations committed in a single transaction)
+- **Queue capacity:** 1,000 (maximum append operations buffered before callers block)
 
 | Concurrent appenders | Throughput (ops/sec) |
 |---------------------:|---------------------:|
