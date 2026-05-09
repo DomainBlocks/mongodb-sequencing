@@ -49,8 +49,8 @@ streams, and always reflects a document's true position in the global order.
 Because the counter increment and the inserts are committed atomically, sequence numbers are guaranteed to be contiguous
 and globally ordered - even across multiple concurrent appenders. When two transactions attempt to increment the counter
 simultaneously, MongoDB's optimistic concurrency control ensures only one can commit; the other fails with a write
-conflict and retries. This forces appends to serialize, eliminating any possibility of gaps or duplicate sequence
-numbers. The result is that sorting by sequence number reflects true insertion order across the entire collection.
+conflict and retries. This forces appends to serialize, eliminating any possibility of out-of-order sequence number
+assignment. The result is that sorting by sequence number reflects true insertion order across the entire collection.
 
 ## Customising behaviour with a policy
 
