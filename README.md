@@ -1,7 +1,13 @@
 # DomainBlocks.MongoDB.Sequencing
 
 A .NET library for appending documents to a MongoDB collection with a globally ordered, strictly increasing, contiguous
-sequence number - providing a reliable total ordering key across historical reads and change streams.
+sequence number - providing a reliable total ordering across historical reads (sorted by sequence number) and change
+stream observations.
+
+## Requirements
+
+- MongoDB replica set
+- .NET 10
 
 ## The problem
 
@@ -10,8 +16,7 @@ inserted across multiple concurrent writers. This makes it difficult to:
 
 - Know that a historical read and a change stream share the same total order, so a consumer can seamlessly transition
   from one to the other without gaps or ambiguity.
-- Reason about causality - if B has a higher sequence number than A, B causally follows A, and nothing happened in
-  between.
+- Reason about causality - if B has a higher sequence number than A, then B causally follows A.
 
 ## Use cases
 
@@ -59,7 +64,37 @@ each batch is committed, and when a duplicate key conflict is detected on the ta
 - Implementing optimistic concurrency checks - e.g. rejecting an append if an event stream version does not match an
   expected version.
 
-## Requirements
+## Benchmarks
 
-- MongoDB replica set
-- .NET 10
+Benchmarks run against a local three-node MongoDB replica set running in Docker on an Apple M3 MacBook Air, .NET 10.
+
+The benchmark tests are included in the repository and can be run against your own environment to get representative
+numbers for your setup.
+
+### Peak throughput
+
+Each operation appends a single document, with a maximum of 1,000 in-flight operations, a batch size of 500, and a queue
+capacity of 1,000, measured over 15 seconds after a 3 second warm-up.
+
+| Concurrent appenders | Throughput (ops/sec) |
+|---------------------:|---------------------:|
+|                    1 |               65,502 |
+|                    3 |               46,464 |
+|                    5 |               30,126 |
+
+Throughput decreases as the number of concurrent appenders increases due to greater write conflict contention on the
+counter document, causing more transactions to abort and retry.
+
+### Latency
+
+Single-appender latency, measured over 1,000 sequential appends following 100 warm-up iterations, one document per
+operation.
+
+| Metric | Latency (ms) |
+|-------:|-------------:|
+|    p50 |          1.4 |
+|    p90 |          1.7 |
+|    p99 |          2.3 |
+|    min |          1.0 |
+|    max |          5.5 |
+|   mean |          1.4 |
