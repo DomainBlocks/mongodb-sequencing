@@ -4,6 +4,16 @@ A .NET library for appending documents to a MongoDB collection with a globally o
 sequence number - providing a reliable total ordering across historical reads (sorted by sequence number) and change
 stream observations.
 
+## Table of contents
+
+- [Requirements](#requirements)
+- [The problem](#the-problem)
+- [Use cases](#use-cases)
+- [How it works](#how-it-works)
+- [Customizing behavior with a policy](#customizing-behavior-with-a-policy)
+- [Benchmarks](#benchmarks)
+- [Example: implementing a simple event store](#example-implementing-a-simple-event-store)
+
 ## Requirements
 
 - MongoDB replica set
@@ -104,5 +114,5 @@ operation.
 
 ## Example: implementing a simple event store
 
-See [SimpleEventStore](examples) for an example showing how to build a simple, globally ordered event store with this
+See [SimpleEventStore](examples) for an example showing how to build a simple, globally ordered event store using this
 library.
