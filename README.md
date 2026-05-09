@@ -27,7 +27,7 @@ Such global sequencing enables reliable checkpointing when tailing an event coll
 historical reads and change stream observations share the same total order, transitioning from catch-up to live
 processing is straightforward to reason about and implement correctly.
 
-## Why not change stream resume tokens?
+### Why not change stream resume tokens?
 
 Unlike change stream resume tokens, a sequence number checkpoint is durable and self-contained. Resume tokens can fall
 off the oplog (making resume impossible without replaying from scratch), can be invalidated if pipeline options change,
