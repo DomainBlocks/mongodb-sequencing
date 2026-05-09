@@ -5,6 +5,7 @@
     <File Path="compose.yaml" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
+    <File Path="README.md" />
   </Folder>
   <Folder Name="/scripts/">
     <File Path="scripts/init-mongo-replica-set.sh" />
