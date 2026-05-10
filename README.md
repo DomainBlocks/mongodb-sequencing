@@ -8,10 +8,10 @@ sequence number - providing a reliable total ordering across historical reads an
 - [Prerequisites](#prerequisites)
 - [The problem](#the-problem)
 - [How it works](#how-it-works)
-- [Customizing behavior with a policy](#customizing-behavior-with-a-policy)
 - [Use cases](#use-cases)
     - [Why not change stream resume tokens?](#why-not-change-stream-resume-tokens)
     - [Example: implementing a simple event store](#example-implementing-a-simple-event-store)
+- [Customizing append behavior](#customizing-append-behavior)
 - [Benchmarks](#benchmarks)
     - [Peak throughput](#peak-throughput)
     - [Latency](#latency)
@@ -47,22 +47,9 @@ and the boundary between catching up historically and tailing live cannot be rea
 
 Because the counter increment and the inserts are committed atomically, sequence numbers are guaranteed to be contiguous
 and globally ordered - even across multiple concurrent appenders. When two transactions attempt to increment the counter
-simultaneously, MongoDB's optimistic concurrency control ensures only one can commit; the other fails with a write
-conflict and retries. This forces appends to serialize, eliminating any possibility of out-of-order sequence number
-assignment. The result is that sorting by sequence number reflects true insertion order across the entire collection.
-
-## Customizing behavior with a policy
-
-An `IMongoSequencedAppenderPolicy<TContext>` can be supplied to hook into the append pipeline at two points: before
-each batch is committed, and when a duplicate key conflict is detected on the target collection. Uses include:
-
-- Stamping per-stream version numbers onto event documents before commit.
-- Implementing idempotent commits by detecting and skipping already-applied requests.
-- Completing requests early based on pre-commit validation.
-- Implementing optimistic concurrency checks.
-
-For an example implementation,
-see [AppenderPolicy](examples/DomainBlocks.MongoDB.Sequencing.Examples/SimpleEventStore/AppenderPolicy.cs).
+simultaneously, MongoDB's write conflict detection ensures only one can commit; the other fails with a write conflict
+and retries. This forces appends to serialize, eliminating any possibility of out-of-order sequence number assignment.
+The result is that sorting by sequence number reflects true insertion order across the entire collection.
 
 ## Use cases
 
@@ -89,6 +76,25 @@ within a collection that's being used as an append-only log, independent of the 
 
 See [SimpleEventStore](examples/DomainBlocks.MongoDB.Sequencing.Examples/SimpleEventStore/SimpleEventStore.cs) for an
 example showing how to build a simple, globally ordered event store using this library.
+
+## Customizing append behavior
+
+An `IMongoSequencedAppenderPolicy<TContext>` can be supplied to hook into the append pipeline at two points:
+
+- **Before each transaction attempt** - runs outside the transaction, before the sequence counter is incremented and
+  documents are inserted. Fires on every attempt, including retries after a write conflict.
+- **After a duplicate key conflict** - runs outside the transaction, after it has been aborted due to a duplicate key
+  error on the target collection.
+
+Uses include:
+
+- Stamping per-stream version numbers onto event documents before commit.
+- Implementing idempotent commits by detecting and skipping already-applied requests.
+- Completing requests early based on pre-commit validation.
+- Implementing optimistic concurrency checks.
+
+For an example implementation,
+see [AppenderPolicy](examples/DomainBlocks.MongoDB.Sequencing.Examples/SimpleEventStore/AppenderPolicy.cs).
 
 ## Benchmarks
 
