@@ -2,7 +2,6 @@
   <Folder Name="/.solution/">
     <File Path=".editorconfig" />
     <File Path=".gitignore" />
-    <File Path="compose.yaml" />
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
     <File Path="README.md" />

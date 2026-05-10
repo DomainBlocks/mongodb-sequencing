@@ -183,25 +183,18 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
 
         while (batch.Count > 0)
         {
-            try
-            {
-                await PrepareCommitAsync(batch, ct).ConfigureAwait(false);
-                var result = await CommitAsync(ct).ConfigureAwait(false);
+            await PrepareCommitAsync(batch, ct).ConfigureAwait(false);
+            var result = await CommitAsync(ct).ConfigureAwait(false);
 
-                switch (result)
-                {
-                    case CommitResult.Success:
-                        foreach (var request in _buffers.Requests)
-                            request.Value.TryComplete();
-                        return;
-                    case CommitResult.Conflict conflict:
-                        await HandleConflictAsync(batch, conflict, ct).ConfigureAwait(false);
-                        break;
-                }
-            }
-            catch (MongoException ex) when (ex.HasErrorLabel(MongoErrorLabels.TransientTransactionError))
+            switch (result)
             {
-                _logger.LogTrace("Transient transaction error; retrying batch (size={BatchSize})", batch.Count);
+                case CommitResult.Success:
+                    foreach (var request in _buffers.Requests)
+                        request.Value.TryComplete();
+                    return;
+                case CommitResult.Conflict conflict:
+                    await HandleConflictAsync(batch, conflict, ct).ConfigureAwait(false);
+                    break;
             }
         }
     }
@@ -237,45 +230,52 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
         if (docCount == 0)
             return new CommitResult.Success();
 
-        using var session = await _mongoClient.StartSessionAsync(cancellationToken: ct).ConfigureAwait(false);
-        session.StartTransaction(MongoSequencedAppender.TransactionOptions);
-
-        try
+        while (true)
         {
-            var startSeq = await ClaimSequenceAsync(session, docCount, ct).ConfigureAwait(false);
+            using var session = await _mongoClient.StartSessionAsync(cancellationToken: ct).ConfigureAwait(false);
+            session.StartTransaction(MongoSequencedAppender.TransactionOptions);
 
-            for (var i = 0; i < docCount; i++)
-                SetSequenceField(docs[i], _targetFieldPathSegments, startSeq + i);
+            try
+            {
+                var startSeq = await ClaimSequenceAsync(session, docCount, ct).ConfigureAwait(false);
 
-            await _targetCollection
-                .InsertManyAsync(session, docs, MongoSequencedAppender.InsertManyOptions, ct)
-                .ConfigureAwait(false);
+                for (var i = 0; i < docCount; i++)
+                    SetSequenceField(docs[i], _targetFieldPathSegments, startSeq + i);
 
-            await session.CommitWithRetryAsync(_logger, ct).ConfigureAwait(false);
+                await _targetCollection
+                    .InsertManyAsync(session, docs, MongoSequencedAppender.InsertManyOptions, ct)
+                    .ConfigureAwait(false);
+
+                await session.CommitWithRetryAsync(_logger, ct).ConfigureAwait(false);
+                return new CommitResult.Success();
+            }
+            catch (MongoException ex) when (ex.HasErrorLabel(MongoErrorLabels.TransientTransactionError))
+            {
+                await SafeAbortTransactionAsync(session, ct).ConfigureAwait(false);
+                _logger.LogTrace("Transient transaction error; retrying transaction (size={BatchSize})", docCount);
+            }
+            catch (MongoBulkWriteException ex) when (ex.WriteErrors.Any(x => x.Code == MongoErrorCodes.DuplicateKey))
+            {
+                await SafeAbortTransactionAsync(session, ct).ConfigureAwait(false);
+
+                var firstError = ex.WriteErrors.First(e => e.Code == MongoErrorCodes.DuplicateKey);
+                var request = _buffers.RequestByDocumentIndex[firstError.Index];
+
+                var conflict = new AppendConflict<TContext>(
+                    request.Documents,
+                    request.Context,
+                    firstError.Index,
+                    firstError.Message,
+                    ex);
+
+                return new CommitResult.Conflict(request.Id, conflict);
+            }
+            catch (Exception)
+            {
+                await SafeAbortTransactionAsync(session, ct).ConfigureAwait(false);
+                throw;
+            }
         }
-        catch (MongoBulkWriteException ex) when (ex.WriteErrors.Any(x => x.Code == MongoErrorCodes.DuplicateKey))
-        {
-            await SafeAbortTransactionAsync(session, ct).ConfigureAwait(false);
-
-            var firstError = ex.WriteErrors.First(e => e.Code == MongoErrorCodes.DuplicateKey);
-            var request = _buffers.RequestByDocumentIndex[firstError.Index];
-
-            var conflict = new AppendConflict<TContext>(
-                request.Documents,
-                request.Context,
-                firstError.Index,
-                firstError.Message,
-                ex);
-
-            return new CommitResult.Conflict(request.Id, conflict);
-        }
-        catch (Exception)
-        {
-            await SafeAbortTransactionAsync(session, ct).ConfigureAwait(false);
-            throw;
-        }
-
-        return new CommitResult.Success();
     }
 
     private async Task HandleConflictAsync(

@@ -6,6 +6,7 @@ sequence number - providing a reliable total ordering across historical reads an
 ## Table of contents
 
 - [Prerequisites](#prerequisites)
+- [Driver version support](#driver-version-support)
 - [The problem](#the-problem)
 - [How it works](#how-it-works)
 - [Use cases](#use-cases)
@@ -21,6 +22,17 @@ sequence number - providing a reliable total ordering across historical reads an
 - MongoDB 7.0+
 - MongoDB replica set deployment
 - .NET 10
+
+## Driver version support
+
+Two NuGet packages are provided targeting different versions of the official MongoDB .NET driver:
+
+| Package                              | MongoDB.Driver version     |
+|:-------------------------------------|:---------------------------|
+| `DomainBlocks.MongoDB.Sequencing`    | 3.x (`>= 3.6.0, < 4.0.0`)  |
+| `DomainBlocks.MongoDB.Sequencing.V2` | 2.x (`>= 2.27.0, < 3.0.0`) |
+
+Both packages expose the same API and share the same source code.
 
 ## The problem
 
@@ -79,10 +91,11 @@ example showing how to build a simple, globally ordered event store using this l
 
 ## Customizing append behavior
 
-An `IMongoSequencedAppenderPolicy<TContext>` can be supplied to hook into the append pipeline at two points:
+An implementation of `IMongoSequencedAppenderPolicy<TContext>` can be provided to hook into the append pipeline at two
+points:
 
 - **Before each transaction attempt** - runs outside the transaction, before the sequence counter is incremented and
-  documents are inserted. Fires on every attempt, including retries after a write conflict.
+  documents are inserted. Fires on every attempt, including retries after a duplicate key error.
 - **After a duplicate key conflict** - runs outside the transaction, after it has been aborted due to a duplicate key
   error on the target collection.
 
@@ -98,10 +111,12 @@ see [AppenderPolicy](examples/DomainBlocks.MongoDB.Sequencing.Examples/SimpleEve
 
 ## Benchmarks
 
-Benchmarks run against a local three-node MongoDB replica set running in Docker on an Apple M3 MacBook Air.
+Benchmarks were run against a local single-node MongoDB replica set running in Docker on an Apple M3 MacBook Air.
+Real-world deployments with network latency between the application and MongoDB will see higher latency and lower
+throughput.
 
-The benchmark tests are included in the repository and can be run against your own environment to get representative
-numbers for your setup.
+The [benchmarks](tests/DomainBlocks.MongoDB.Sequencing.Tests.Integration/MongoSequencedAppenderBenchmarkTests.cs) are
+included in the repository and can be run against your own environment to get representative numbers for your setup.
 
 ### Peak throughput
 
@@ -114,14 +129,18 @@ following parameters were used:
 
 | Appender instance count* | Throughput (ops/sec) |
 |-------------------------:|---------------------:|
-|                        1 |               65,502 |
-|                        3 |               46,464 |
-|                        5 |               30,126 |
+|                        1 |               94,499 |
+|                        3 |               82,447 |
+|                        5 |               55,624 |
 
 \* Values greater than 1 indicate multiple appender instances issuing append operations concurrently.
 
 Throughput decreases as the number of concurrent appenders increases due to greater write conflict contention on the
 counter document, causing more transactions to abort and retry.
+
+Deployments with a multi-node MongoDB cluster will see reduced throughput due to replication overhead, as
+`w: "majority"` write concern requires acknowledgement from a majority of members before a transaction can commit. For
+example, a local 3-node replica set yielded approximately 65,500 ops/sec using the same parameters.
 
 ### Latency
 
@@ -130,9 +149,9 @@ operation.
 
 | Metric | Latency (ms) |
 |-------:|-------------:|
-|    p50 |          1.4 |
-|    p90 |          1.7 |
-|    p99 |          2.3 |
-|    min |          1.0 |
-|    max |          5.5 |
+|    p50 |          1.2 |
+|    p90 |          2.2 |
+|    p99 |          2.7 |
+|    min |          0.7 |
+|    max |          4.8 |
 |   mean |          1.4 |

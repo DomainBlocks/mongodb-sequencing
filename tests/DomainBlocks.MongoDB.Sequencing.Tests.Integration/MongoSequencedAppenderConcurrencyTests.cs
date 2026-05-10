@@ -23,7 +23,7 @@ public class MongoSequencedAppenderConcurrencyTests
     [SetUp]
     public async Task SetUp()
     {
-        _mongoClient = new MongoClient(TestMongoConnectionStrings.Default);
+        _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
         _databaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
         _seqNs = new CollectionNamespace(_databaseName, "sequences");
         _targetNs = new CollectionNamespace(_databaseName, "targets");
@@ -106,7 +106,7 @@ public class MongoSequencedAppenderConcurrencyTests
 
     [Test]
     [CancelAfter(TestTimeoutMillis)]
-    public async Task ConcurrentAppends_Sequence_IsStrictlyIncreasingAndContiguous_HistoricalRead(CancellationToken ct)
+    public async Task ConcurrentAppends_HistoricalRead_SequenceIsStrictlyIncreasingAndContiguous(CancellationToken ct)
     {
         const int batchesPerAppender = 10;
         const int docsPerBatch = 3;
@@ -136,8 +136,7 @@ public class MongoSequencedAppenderConcurrencyTests
     [Test]
     [CancelAfter(30_000)]
     [Explicit("Long running")]
-    public async Task ConcurrentAppends_Sequence_IsStrictlyIncreasingAndContiguous_ChangeStreamRead(
-        CancellationToken ct)
+    public async Task ConcurrentAppends_ChangeStreamRead_SequenceIsStrictlyIncreasingAndContiguous(CancellationToken ct)
     {
         const int runSeconds = 15;
         const int minObservedDocs = 100;

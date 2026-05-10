@@ -12,15 +12,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Start MongoDB Replica Set
-        run: docker compose up -d
-
-      - name: Make replica-set hostnames resolvable
-        run: |
-          echo "127.0.0.1 mongo1" | sudo tee -a /etc/hosts
-          echo "127.0.0.1 mongo2" | sudo tee -a /etc/hosts
-          echo "127.0.0.1 mongo3" | sudo tee -a /etc/hosts
-
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
@@ -32,18 +23,6 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      - name: Wait for replica set primary
-        run: |
-          for i in {1..60}; do
-            if docker exec mongo1 mongosh --quiet --eval "db.hello().isWritablePrimary" | grep -q "true"; then
-              echo "Replica set ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "Replica set not ready in time"
-          exit 1
-
       - name: Run tests
         run: dotnet test --no-build --configuration Release --verbosity normal
 
@@ -51,7 +30,3 @@ jobs:
         run: |
           dotnet pack -c Release -o ./packages/ --include-symbols --include-source -p:SymbolPackageFormat=snupkg
           dotnet nuget push "./packages/*.nupkg" -s 'https://api.nuget.org/v3/index.json' -k ${{secrets.NUGET_API_KEY}} --skip-duplicate
-
-      - name: Stop MongoDB
-        if: always()
-        run: docker compose down

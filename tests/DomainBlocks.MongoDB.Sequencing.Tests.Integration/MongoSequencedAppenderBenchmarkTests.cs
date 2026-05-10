@@ -23,7 +23,7 @@ public class MongoSequencedAppenderBenchmarkTests
     [SetUp]
     public async Task SetUp()
     {
-        _mongoClient = new MongoClient(TestMongoConnectionStrings.Default);
+        _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
         _databaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
         _seqNs = new CollectionNamespace(_databaseName, "sequences");
         _targetNs = new CollectionNamespace(_databaseName, "targets");
@@ -113,7 +113,7 @@ public class MongoSequencedAppenderBenchmarkTests
     [CancelAfter(TestTimeoutMillis)]
     public async Task AppendAsync_MeasureThroughputCeiling(CancellationToken ct)
     {
-        const int appenderCount = 5;
+        const int appenderCount = 1;
         const int maxInFlight = 1000;
         const int warmUpSeconds = 3;
         const int measureSeconds = 15;
