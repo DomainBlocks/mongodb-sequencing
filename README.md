@@ -74,11 +74,15 @@ processing is straightforward to reason about and implement correctly.
 
 ### Why not change stream resume tokens?
 
-Unlike change stream resume tokens, a sequence number checkpoint is durable and self-contained. Resume tokens eventually
-roll off the oplog (making resume impossible without replaying from scratch), can be invalidated if pipeline options
-change, and have no meaningful correlation to position within the collection itself. A sequence number, by contrast,
-survives oplog rotation, is easy to reason about across historical reads and change streams, and always reflects a
-document's true position in the global order.
+Change stream resume tokens have the following limitations:
+
+- Can become stale - if a consumer is offline long enough, the corresponding oplog entry may roll off, making resumption
+  impossible without replaying from scratch.
+- Resuming with a different pipeline or options may lead to unpredictable behavior or prevent resumption entirely.
+- Have no meaningful correlation to position within the collection itself.
+
+A sequence number, by contrast, survives oplog rotation, is easy to reason about across historical reads and change
+streams, and always reflects a document's true position in the global order.
 
 To be clear, this library does not attempt to replace change stream resume tokens - they remain the mechanism for
 resuming a change stream itself. Rather, a sequence number provides a reliable, durable way to track your position
