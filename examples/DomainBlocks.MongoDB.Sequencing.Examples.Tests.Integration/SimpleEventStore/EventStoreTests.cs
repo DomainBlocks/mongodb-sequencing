@@ -49,26 +49,31 @@ public class EventStoreTests
     [Test]
     public async Task Append_SingleStream_AssignsContiguousStreamVersions()
     {
-        await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1"), new OrderShipped("order-1")]);
+        await _eventStore.AppendAsync(
+            "order-1",
+            [
+                new OrderPlaced("order-1"),
+                new OrderShipped("order-1"),
+                new OrderDelivered("order-1")
+            ]);
 
         var events = await _eventStore.ReadStreamAsync("order-1").ToListAsync();
 
-        events.Count.ShouldBe(2);
-        events[0].StreamVersion.ShouldBe(0);
-        events[1].StreamVersion.ShouldBe(1);
+        events.Count.ShouldBe(3);
+        events.Select(x => x.StreamVersion).ShouldBe([0, 1, 2]);
     }
 
     [Test]
     public async Task Append_SingleStream_AssignsContiguousGlobalSequence()
     {
         await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")]);
-        await _eventStore.AppendAsync("order-2", [new OrderPlaced("order-2")]);
+        await _eventStore.AppendAsync("order-1", [new OrderShipped("order-1")]);
+        await _eventStore.AppendAsync("order-1", [new OrderDelivered("order-1")]);
 
         var all = await _eventStore.ReadAllAsync().ToListAsync();
 
-        all.Count.ShouldBe(2);
-        all[0].GlobalSequence.ShouldBe(0);
-        all[1].GlobalSequence.ShouldBe(1);
+        all.Count.ShouldBe(3);
+        all.Select(x => x.GlobalSequence).ShouldBe([0, 1, 2]);
     }
 
     [Test]
@@ -92,8 +97,7 @@ public class EventStoreTests
         var events = await _eventStore.ReadStreamAsync("order-1").ToListAsync();
 
         events.Count.ShouldBe(2);
-        events[0].StreamVersion.ShouldBe(0);
-        events[1].StreamVersion.ShouldBe(1);
+        events.Select(x => x.StreamVersion).ShouldBe([0, 1]);
     }
 
     [Test]
@@ -106,10 +110,19 @@ public class EventStoreTests
     }
 
     [Test]
-    public async Task Append_ToNewStream_WithExpectedVersionNull_Succeeds()
+    public async Task Append_ToNewStreamWithNoExpectedVersion_Succeeds()
     {
         await Should.NotThrowAsync(() =>
             _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")], expectedVersion: null));
+    }
+
+    [Test]
+    public async Task Append_ToExistingStreamWithNoExpectedVersion_Succeeds()
+    {
+        await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")]);
+
+        await Should.NotThrowAsync(() =>
+            _eventStore.AppendAsync("order-1", [new OrderShipped("order-1")], expectedVersion: null));
     }
 
     [Test]
@@ -136,64 +149,77 @@ public class EventStoreTests
     [Test]
     public async Task ReadStream_FromStart_ReturnsEventsInStreamVersionOrder()
     {
-        await _eventStore.AppendAsync(
-            "order-1",
-            [
-                new OrderPlaced("order-1"),
-                new OrderShipped("order-1"),
-                new OrderDelivered("order-1")
-            ]);
+        object[] events =
+        [
+            new OrderPlaced("order-1"),
+            new OrderShipped("order-1"),
+            new OrderDelivered("order-1")
+        ];
 
-        var events = await _eventStore.ReadStreamAsync("order-1").ToListAsync();
+        await _eventStore.AppendAsync("order-1", events);
 
-        events.Select(x => x.StreamVersion).ShouldBe([0, 1, 2]);
+        var readEvents = await _eventStore.ReadStreamAsync("order-1").ToListAsync();
+
+        readEvents.Select(x => x.Payload).ShouldBe(events);
+        readEvents.Select(x => x.StreamVersion).ShouldBe([0, 1, 2]);
     }
 
     [Test]
     public async Task ReadStream_FromVersion_ReturnsOnlyEventsFromThatVersion()
     {
-        await _eventStore.AppendAsync(
-            "order-1",
-            [
-                new OrderPlaced("order-1"),
-                new OrderShipped("order-1"),
-                new OrderDelivered("order-1")
-            ]);
+        object[] events =
+        [
+            new OrderPlaced("order-1"),
+            new OrderShipped("order-1"),
+            new OrderDelivered("order-1")
+        ];
 
-        var events = await _eventStore.ReadStreamAsync("order-1", fromVersion: 1).ToListAsync();
+        await _eventStore.AppendAsync("order-1", events);
 
-        events.Count.ShouldBe(2);
-        events[0].StreamVersion.ShouldBe(1);
-        events[1].StreamVersion.ShouldBe(2);
+        var readEvents = await _eventStore.ReadStreamAsync("order-1", fromVersion: 1).ToListAsync();
+
+        readEvents.Select(x => x.Payload).ShouldBe(events.Skip(1));
+        readEvents.Select(x => x.StreamVersion).ShouldBe([1, 2]);
     }
 
     [Test]
-    public async Task ReadAll_FromStart_ReturnsOnlyEventsFromThatPosition()
+    public async Task ReadAll_FromStart_ReturnsEventsInGlobalSequenceOrder()
     {
-        await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")]);
-        await _eventStore.AppendAsync("order-2", [new OrderPlaced("order-2")]);
-        await _eventStore.AppendAsync("order-3", [new OrderPlaced("order-3")]);
+        object[] events =
+        [
+            new OrderPlaced("order-1"),
+            new OrderPlaced("order-2"),
+            new OrderPlaced("order-3")
+        ];
 
-        var events = await _eventStore.ReadAllAsync().ToListAsync();
+        await _eventStore.AppendAsync("order-1", [events[0]]);
+        await _eventStore.AppendAsync("order-2", [events[1]]);
+        await _eventStore.AppendAsync("order-3", [events[2]]);
 
-        events.Count.ShouldBe(3);
-        events[0].GlobalSequence.ShouldBe(0);
-        events[1].GlobalSequence.ShouldBe(1);
-        events[2].GlobalSequence.ShouldBe(2);
+        var readEvents = await _eventStore.ReadAllAsync().ToListAsync();
+
+        readEvents.Select(x => x.Payload).ShouldBe(events);
+        readEvents.Select(x => x.GlobalSequence).ShouldBe([0, 1, 2]);
     }
 
     [Test]
-    public async Task ReadAll_FromSequence_ReturnsOnlyEventsFromThatPosition()
+    public async Task ReadAll_FromSequence_ReturnsOnlyEventsFromThatSequence()
     {
-        await _eventStore.AppendAsync("order-1", [new OrderPlaced("order-1")]);
-        await _eventStore.AppendAsync("order-2", [new OrderPlaced("order-2")]);
-        await _eventStore.AppendAsync("order-3", [new OrderPlaced("order-3")]);
+        object[] events =
+        [
+            new OrderPlaced("order-1"),
+            new OrderPlaced("order-2"),
+            new OrderPlaced("order-3")
+        ];
 
-        var events = await _eventStore.ReadAllAsync(fromSequence: 1).ToListAsync();
+        await _eventStore.AppendAsync("order-1", [events[0]]);
+        await _eventStore.AppendAsync("order-2", [events[1]]);
+        await _eventStore.AppendAsync("order-3", [events[2]]);
 
-        events.Count.ShouldBe(2);
-        events[0].GlobalSequence.ShouldBe(1);
-        events[1].GlobalSequence.ShouldBe(2);
+        var readEvents = await _eventStore.ReadAllAsync(fromSequence: 1).ToListAsync();
+
+        readEvents.Select(x => x.Payload).ShouldBe(events.Skip(1));
+        readEvents.Select(x => x.GlobalSequence).ShouldBe([1, 2]);
     }
 
     // Resharper disable all
