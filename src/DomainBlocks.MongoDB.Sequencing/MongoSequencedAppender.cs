@@ -18,6 +18,7 @@ internal static class MongoSequencedAppender
     public static readonly InsertManyOptions InsertManyOptions = new() { IsOrdered = true };
 }
 
+/// <inheritdoc/>
 public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequencedAppender<TDocument, TContext>
 {
     private readonly IMongoClient _mongoClient;

@@ -18,7 +18,7 @@ public sealed class MongoReplicaSetFixture
     [OneTimeSetUp]
     public async Task OneTimeSetUp()
     {
-        _container = new ContainerBuilder("mongo:latest")
+        _container = new ContainerBuilder("mongo:7.0")
             .WithPortBinding(MongoPort, assignRandomHostPort: true)
             .WithCommand("--replSet", "rs0", "--bind_ip_all")
             .WithWaitStrategy(Wait.ForUnixContainer().UntilInternalTcpPortIsAvailable(MongoPort))
@@ -64,6 +64,7 @@ public sealed class MongoReplicaSetFixture
         // Wait until writable primary.
         var timeout = TimeSpan.FromSeconds(60);
         var start = DateTime.UtcNow;
+        var isReady = false;
 
         while (DateTime.UtcNow - start < timeout)
         {
@@ -72,7 +73,10 @@ public sealed class MongoReplicaSetFixture
                 var hello = await adminDb.RunCommandAsync<BsonDocument>(new BsonDocument("hello", 1));
                 var isWritablePrimary = hello.GetValue("isWritablePrimary", false).ToBoolean();
                 if (isWritablePrimary)
+                {
+                    isReady = true;
                     break;
+                }
             }
             catch
             {
@@ -81,6 +85,9 @@ public sealed class MongoReplicaSetFixture
 
             await Task.Delay(500);
         }
+
+        if (!isReady)
+            throw new TimeoutException("MongoDB replica set did not become ready within the timeout period.");
 
         ConnectionString = $"mongodb://{host}:{mappedPort}/?replicaSet=rs0";
     }

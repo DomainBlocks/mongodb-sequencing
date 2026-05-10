@@ -1,6 +1,6 @@
 ﻿services:
   mongo1:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: mongo1
     ports:
       - "27017:27017"
@@ -11,7 +11,7 @@
       - mongo-cluster
 
   mongo2:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: mongo2
     ports:
       - "27018:27018"
@@ -22,7 +22,7 @@
       - mongo-cluster
 
   mongo3:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: mongo3
     ports:
       - "27019:27019"
@@ -33,7 +33,7 @@
       - mongo-cluster
   
   mongo-init-rs:
-    image: mongo:latest
+    image: mongo:7.0
     container_name: mongo-init-rs
     depends_on:
       - mongo1

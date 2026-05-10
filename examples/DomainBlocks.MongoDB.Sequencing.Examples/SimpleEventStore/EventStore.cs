@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using MongoDB.Bson;
 using MongoDB.Driver;
 
 namespace DomainBlocks.MongoDB.Sequencing.Examples.SimpleEventStore;
