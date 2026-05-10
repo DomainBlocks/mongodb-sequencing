@@ -7,12 +7,12 @@ namespace DomainBlocks.MongoDB.Sequencing.Examples.SimpleEventStore;
 /// Minimal event store that uses <see cref="MongoSequencedAppender{TDocument,TContext}"/> to assign globally ordered
 /// sequence numbers.
 /// </summary>
-public sealed class EventStore : IAsyncDisposable
+public sealed class SimpleEventStore : IAsyncDisposable
 {
     private readonly IMongoCollection<EventDocument> _collection;
     private readonly MongoSequencedAppender<EventDocument, AppendContext> _appender;
 
-    public EventStore(IMongoClient client, string databaseName)
+    public SimpleEventStore(IMongoClient client, string databaseName)
     {
         var db = client.GetDatabase(databaseName);
         _collection = db.GetCollection<EventDocument>("events");

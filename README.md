@@ -87,8 +87,8 @@ within a collection that's being used as an append-only log, independent of the 
 
 ### Example: implementing a simple event store
 
-See [SimpleEventStore](examples) for an example showing how to build a simple, globally ordered event store using this
-library.
+See [SimpleEventStore](examples/DomainBlocks.MongoDB.Sequencing.Examples/SimpleEventStore/SimpleEventStore.cs) for an
+example showing how to build a simple, globally ordered event store using this library.
 
 ## Benchmarks
 

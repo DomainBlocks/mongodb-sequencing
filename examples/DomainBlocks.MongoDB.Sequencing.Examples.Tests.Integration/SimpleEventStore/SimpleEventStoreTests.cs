@@ -1,5 +1,4 @@
-﻿using DomainBlocks.MongoDB.Sequencing.Examples.SimpleEventStore;
-using MongoDB.Bson.Serialization;
+﻿using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using NUnit.Framework;
@@ -7,13 +6,13 @@ using Shouldly;
 
 namespace DomainBlocks.MongoDB.Sequencing.Examples.Tests.Integration.SimpleEventStore;
 
-public class EventStoreTests
+public class SimpleEventStoreTests
 {
     private MongoClient _mongoClient = null!;
     private string _databaseName = null!;
-    private EventStore _eventStore = null!;
+    private Examples.SimpleEventStore.SimpleEventStore _eventStore = null!;
 
-    static EventStoreTests()
+    static SimpleEventStoreTests()
     {
         // Allow only these example event POCOs for object-payload BSON serialization in tests.
         HashSet<Type> allowedEventTypes =
@@ -34,7 +33,7 @@ public class EventStoreTests
     {
         _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
         _databaseName = $"es_test_{Guid.NewGuid():N}";
-        _eventStore = new EventStore(_mongoClient, _databaseName);
+        _eventStore = new Examples.SimpleEventStore.SimpleEventStore(_mongoClient, _databaseName);
         await _eventStore.EnsureIndexesAsync();
     }
 
