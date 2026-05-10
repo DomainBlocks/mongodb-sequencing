@@ -1,7 +1,7 @@
 # DomainBlocks.MongoDB.Sequencing
 
-A .NET library for appending documents to a MongoDB collection with a globally ordered, strictly increasing, contiguous
-sequence number - providing a reliable total ordering across historical reads and change stream observations.
+A .NET library for appending documents to a MongoDB collection with a contiguous, strictly increasing sequence number -
+guaranteeing total order across historical reads and change stream observations.
 
 ## Table of contents
 
@@ -27,10 +27,10 @@ sequence number - providing a reliable total ordering across historical reads an
 
 Two NuGet packages are provided targeting different versions of the official MongoDB .NET driver:
 
-| Package                              | MongoDB.Driver version     |
-|:-------------------------------------|:---------------------------|
-| `DomainBlocks.MongoDB.Sequencing`    | 3.x (`>= 3.6.0, < 4.0.0`)  |
-| `DomainBlocks.MongoDB.Sequencing.V2` | 2.x (`>= 2.27.0, < 3.0.0`) |
+| Package                            | MongoDB.Driver version   |
+|:-----------------------------------|:-------------------------|
+| DomainBlocks.MongoDB.Sequencing    | 3.x (>= 3.6.0, < 4.0.0)  |
+| DomainBlocks.MongoDB.Sequencing.V2 | 2.x (>= 2.27.0, < 3.0.0) |
 
 Both packages expose the same API and share the same source code.
 
