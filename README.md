@@ -99,9 +99,9 @@ An implementation of `IMongoSequencedAppenderPolicy<TContext>` can be provided t
 points:
 
 - **Before each transaction attempt** - runs outside the transaction, before the sequence counter is incremented and
-  documents are inserted. Fires on every attempt, including retries after a duplicate key error.
+  documents are inserted. Fires on every attempt, including retries after a duplicate key conflict.
 - **After a duplicate key conflict** - runs outside the transaction, after it has been aborted due to a duplicate key
-  error on the target collection.
+  conflict on the target collection.
 
 Uses include:
 
