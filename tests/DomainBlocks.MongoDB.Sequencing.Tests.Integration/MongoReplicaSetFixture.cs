@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using Testcontainers.MongoDb;
 
-namespace DomainBlocks.MongoDB.Sequencing.Examples.Tests.Integration;
+namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
 [SetUpFixture]
 public sealed class MongoReplicaSetFixture
