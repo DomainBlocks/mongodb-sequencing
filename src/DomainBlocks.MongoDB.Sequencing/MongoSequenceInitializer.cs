@@ -23,6 +23,9 @@ public static class MongoSequenceInitializer
         long initialSequenceNumber,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(mongoClient);
+        ArgumentNullException.ThrowIfNull(sequenceCollectionNamespace);
+        ArgumentException.ThrowIfNullOrWhiteSpace(sequenceId);
         ArgumentOutOfRangeException.ThrowIfNegative(initialSequenceNumber);
 
         var collection = mongoClient
