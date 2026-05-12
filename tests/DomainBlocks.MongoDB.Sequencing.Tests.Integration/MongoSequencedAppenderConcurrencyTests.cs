@@ -12,6 +12,7 @@ public class MongoSequencedAppenderConcurrencyTests
     private const int TestTimeoutMillis = 10 * 1_000;
     private const int AppenderCount = 5;
     private const string TestDbPrefix = "seq_test_";
+    private const string SequenceId = "test_seq";
 
     private MongoClient _mongoClient = null!;
     private string _databaseName = null!;
@@ -241,7 +242,7 @@ public class MongoSequencedAppenderConcurrencyTests
     {
         var binding = new MongoSequenceBinding<TargetDoc>(
             sequenceCollectionNamespace: _seqNs,
-            sequenceId: "test_seq",
+            sequenceId: SequenceId,
             targetCollectionNamespace: _targetNs,
             targetField: new ExpressionFieldDefinition<TargetDoc, long>(x => x.Nested!.Sequence));
 

@@ -13,6 +13,7 @@ public class MongoSequencedAppenderBenchmarkTests
 {
     private const int TestTimeoutMillis = 30 * 1_000;
     private const string TestDbPrefix = "seq_bench_";
+    private const string SequenceId = "bench_seq";
 
     private MongoClient _mongoClient = null!;
     private string _databaseName = null!;
@@ -221,7 +222,7 @@ public class MongoSequencedAppenderBenchmarkTests
     {
         var binding = new MongoSequenceBinding<BenchmarkDoc>(
             sequenceCollectionNamespace: _seqNs,
-            sequenceId: "bench_seq",
+            sequenceId: SequenceId,
             targetCollectionNamespace: _targetNs,
             targetField: new ExpressionFieldDefinition<BenchmarkDoc, long>(x => x.Sequence));
 
