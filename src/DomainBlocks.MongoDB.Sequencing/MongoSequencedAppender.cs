@@ -339,15 +339,13 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
 
     private async Task<long> ClaimSequenceAsync(IClientSessionHandle session, long count, CancellationToken ct)
     {
-        const string nextFieldName = "next";
-
         var filter = Builders<BsonDocument>.Filter.Eq("_id", _sequenceId);
-        var update = Builders<BsonDocument>.Update.Inc(nextFieldName, count);
+        var update = Builders<BsonDocument>.Update.Inc(SequenceFieldNames.Next, count);
 
         var options = new FindOneAndUpdateOptions<BsonDocument>
         {
             IsUpsert = true,
-            Projection = Builders<BsonDocument>.Projection.Include(nextFieldName),
+            Projection = Builders<BsonDocument>.Projection.Include(SequenceFieldNames.Next),
             ReturnDocument = ReturnDocument.Before
         };
 
@@ -355,7 +353,7 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
             .FindOneAndUpdateAsync(session, filter, update, options, ct)
             .ConfigureAwait(false);
 
-        var start = result?[nextFieldName].ToInt64() ?? 0;
+        var start = result?[SequenceFieldNames.Next].ToInt64() ?? 0;
 
         return start;
     }
