@@ -1,87 +1,23 @@
 ﻿using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Driver;
 using NUnit.Framework;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public class MongoSequencedAppenderBenchmarkTests
+public class MongoSequencedAppenderBenchmarkTests : MongoIntegrationTestBase
 {
-    private const int TestTimeoutMillis = 30 * 1_000;
-    private const string TestDbPrefix = "seq_bench_";
-    private const string SequenceId = "bench_seq";
-
-    private MongoClient _mongoClient = null!;
-    private string _databaseName = null!;
-    private CollectionNamespace _seqNs = null!;
-    private CollectionNamespace _targetNs = null!;
-    private ILoggerFactory _loggerFactory = null!;
-
-    [SetUp]
-    public async Task SetUp()
-    {
-        _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
-        _databaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
-        _seqNs = new CollectionNamespace(_databaseName, "sequences");
-        _targetNs = new CollectionNamespace(_databaseName, "targets");
-
-        _loggerFactory = LoggerFactory.Create(x => x
-            .AddSimpleConsole(opt =>
-            {
-                opt.IncludeScopes = true;
-                opt.TimestampFormat = "HH:mm:ss.fff ";
-            })
-            .SetMinimumLevel(LogLevel.Debug));
-
-        var db = _mongoClient.GetDatabase(_databaseName);
-        await db.CreateCollectionAsync(_targetNs.CollectionName);
-
-        var targetCollection = db.GetCollection<BenchmarkDoc>(_targetNs.CollectionName);
-
-        var indexModel = new CreateIndexModel<BenchmarkDoc>(
-            Builders<BenchmarkDoc>.IndexKeys.Ascending(x => x.Sequence),
-            new CreateIndexOptions { Unique = true });
-
-        await targetCollection.Indexes.CreateOneAsync(indexModel);
-    }
-
-    [TearDown]
-    public async Task TearDown()
-    {
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-
-        try
-        {
-            await _mongoClient.DropDatabaseAsync(_databaseName, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // best-effort
-        }
-        finally
-        {
-            cts.Dispose();
-            _loggerFactory.Dispose();
-
-#if !MONGO_DRIVER_V2
-            _mongoClient.Dispose();
-#endif
-        }
-    }
+    private const int TimeoutMillis = 30_000;
 
     [Test]
     [Explicit("Benchmark")]
-    [CancelAfter(TestTimeoutMillis)]
+    [CancelAfter(TimeoutMillis)]
     public async Task AppendAsync_SingleAppend_MeasureLatency(CancellationToken ct)
     {
         const int warmupIterations = 100;
         const int iterations = 1000;
 
-        await using var appender = CreateAppender();
+        await using var appender = CreateAppender<object>();
 
         for (var i = 0; i < warmupIterations; i++)
             await AppendAsync(appender, ct);
@@ -111,7 +47,7 @@ public class MongoSequencedAppenderBenchmarkTests
 
     [Test]
     [Explicit("Benchmark")]
-    [CancelAfter(TestTimeoutMillis)]
+    [CancelAfter(TimeoutMillis)]
     public async Task AppendAsync_MeasureThroughputCeiling(CancellationToken ct)
     {
         const int appenderCount = 1;
@@ -120,7 +56,7 @@ public class MongoSequencedAppenderBenchmarkTests
         const int measureSeconds = 15;
 
         var appenders = Enumerable.Range(0, appenderCount)
-            .Select(CreateAppender)
+            .Select(i => CreateAppender<object>(i))
             .ToArray();
 
         try
@@ -209,37 +145,12 @@ public class MongoSequencedAppenderBenchmarkTests
     }
 
     private static Task AppendAsync(
-        MongoSequencedAppender<BenchmarkDoc, object> appender,
+        MongoSequencedAppender<TargetDoc, object> appender,
         CancellationToken ct)
     {
         return appender.AppendAsync(
-            [new BenchmarkDoc { Value = "Benchmark" }],
+            [new TargetDoc { Value = "Benchmark" }],
             context: new object(),
             cancellationToken: ct);
     }
-
-    private MongoSequencedAppender<BenchmarkDoc, object> CreateAppender(int index = 0)
-    {
-        var binding = new MongoSequenceBinding<BenchmarkDoc>(
-            sequenceCollectionNamespace: _seqNs,
-            sequenceId: SequenceId,
-            targetCollectionNamespace: _targetNs,
-            targetField: new ExpressionFieldDefinition<BenchmarkDoc, long>(x => x.Sequence));
-
-        return new MongoSequencedAppender<BenchmarkDoc, object>(
-            _mongoClient,
-            binding,
-            logger: _loggerFactory.CreateLogger($"appender_{index}"));
-    }
-
-    // ReSharper disable all
-    private record BenchmarkDoc
-    {
-        public ObjectId Id { get; init; }
-        public required string Value { get; init; }
-
-        [BsonElement("seq")]
-        public long Sequence { get; init; }
-    }
-    // ReSharper restore all
 }
