@@ -141,7 +141,7 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
 
         _channel.Writer.TryComplete();
         await _stopCts.CancelAsync().ConfigureAwait(false);
-        await _runAppendLoopTask.ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
+        await _runAppendLoopTask.ConfigureAwait(false);
         _stopCts.Dispose();
     }
 
@@ -159,20 +159,32 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
                 if (batch.Count == 0)
                     continue;
 
-                await ProcessBatchAsync(batch, ct).ConfigureAwait(false);
+                try
+                {
+                    await ProcessBatchAsync(batch, ct).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw; // Let the outer catch handle graceful stop.
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "An error occurred while processing a batch");
+                    FaultAll(batch, ex);
+                }
+
                 batch.Clear();
             }
         }
         catch (OperationCanceledException ex) when (ct.IsCancellationRequested)
         {
-            // Graceful stop: complete writer, then fault current batch + queued items.
+            _logger.LogTrace("Append operation canceled");
             _channel.Writer.TryComplete();
             FaultAll(batch, ex);
             DrainWithFault(_channel, ex);
         }
         catch (Exception ex)
         {
-            // Fatal worker failure: complete writer with error, then current batch + queued items.
             _logger.LogCritical(ex, "A fatal error occurred while processing appends");
             _channel.Writer.TryComplete(ex);
             FaultAll(batch, ex);

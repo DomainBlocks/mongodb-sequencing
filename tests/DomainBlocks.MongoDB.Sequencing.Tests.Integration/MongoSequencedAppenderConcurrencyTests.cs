@@ -1,86 +1,38 @@
-﻿using Microsoft.Extensions.Logging;
-using MongoDB.Bson;
-using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson;
 using MongoDB.Driver;
 using NUnit.Framework;
 using Shouldly;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public class MongoSequencedAppenderConcurrencyTests
+public class MongoSequencedAppenderConcurrencyTests : MongoIntegrationTestBase
 {
-    private const int TestTimeoutMillis = 10 * 1_000;
+    private const int TimeoutMillis = 10_000;
+    private const int LongRunningTimeoutMillis = 30_000;
     private const int AppenderCount = 5;
-    private const string TestDbPrefix = "seq_test_";
-    private const string SequenceId = "test_seq";
 
-    private MongoClient _mongoClient = null!;
-    private string _databaseName = null!;
-    private CollectionNamespace _seqNs = null!;
-    private CollectionNamespace _targetNs = null!;
     private MongoSequencedAppender<TargetDoc, object>[] _appenders = null!;
-    private ILoggerFactory _loggerFactory = null!;
 
-    [SetUp]
-    public async Task SetUp()
+    protected override Task SetUpAsync()
     {
-        _mongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
-        _databaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
-        _seqNs = new CollectionNamespace(_databaseName, "sequences");
-        _targetNs = new CollectionNamespace(_databaseName, "targets");
+        _appenders =
+        [
+            .. Enumerable
+                .Range(0, AppenderCount)
+                .Select(i => CreateAppender<object>(i))
+        ];
 
-        _loggerFactory = LoggerFactory.Create(x => x
-            .AddSimpleConsole(opt =>
-            {
-                opt.IncludeScopes = true;
-                opt.TimestampFormat = "HH:mm:ss.fff ";
-            })
-            .SetMinimumLevel(LogLevel.Debug));
-
-        // Ensure the target collection exists and has a unique index on sequence.
-        var db = _mongoClient.GetDatabase(_databaseName);
-        await db.CreateCollectionAsync(_targetNs.CollectionName);
-
-        var targetCollection = db.GetCollection<TargetDoc>(_targetNs.CollectionName);
-
-        var indexModel = new CreateIndexModel<TargetDoc>(
-            Builders<TargetDoc>.IndexKeys.Ascending(x => x.Nested!.Sequence),
-            new CreateIndexOptions { Unique = true });
-
-        await targetCollection.Indexes.CreateOneAsync(indexModel);
-
-        _appenders = [.. Enumerable.Range(0, AppenderCount).Select(CreateAppender)];
+        return Task.CompletedTask;
     }
 
-    [TearDown]
-    public async Task TearDown()
+    protected override async Task TearDownAsync()
     {
-        foreach (var appender in _appenders)
-            await appender.DisposeAsync();
-
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-
-        try
-        {
-            await _mongoClient.DropDatabaseAsync(_databaseName, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // best-effort
-        }
-        finally
-        {
-            cts.Dispose();
-            _loggerFactory.Dispose();
-
-#if !MONGO_DRIVER_V2
-            _mongoClient.Dispose();
-#endif
-        }
+        foreach (var a in _appenders)
+            await a.DisposeAsync();
     }
 
     [Test]
-    [CancelAfter(TestTimeoutMillis)]
+    [CancelAfter(TimeoutMillis)]
     public async Task ConcurrentAppends_FromMultipleAppenders_AllSucceed(CancellationToken ct)
     {
         const int docsPerAppender = 20;
@@ -106,7 +58,7 @@ public class MongoSequencedAppenderConcurrencyTests
     }
 
     [Test]
-    [CancelAfter(TestTimeoutMillis)]
+    [CancelAfter(TimeoutMillis)]
     public async Task ConcurrentAppends_HistoricalRead_SequenceIsStrictlyIncreasingAndContiguous(CancellationToken ct)
     {
         const int batchesPerAppender = 10;
@@ -135,15 +87,15 @@ public class MongoSequencedAppenderConcurrencyTests
     }
 
     [Test]
-    [CancelAfter(30_000)]
+    [CancelAfter(LongRunningTimeoutMillis)]
     [Explicit("Long running")]
     public async Task ConcurrentAppends_ChangeStreamRead_SequenceIsStrictlyIncreasingAndContiguous(CancellationToken ct)
     {
         const int runSeconds = 15;
         const int minObservedDocs = 100;
 
-        var db = _mongoClient.GetDatabase(_databaseName);
-        var target = db.GetCollection<BsonDocument>(_targetNs.CollectionName);
+        var db = MongoClient.GetDatabase(DatabaseName);
+        var target = db.GetCollection<BsonDocument>(TargetNs.CollectionName);
 
         using var runCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         runCts.CancelAfter(TimeSpan.FromSeconds(runSeconds));
@@ -237,49 +189,4 @@ public class MongoSequencedAppenderConcurrencyTests
         if (firstFailure is not null)
             throw firstFailure;
     }
-
-    private MongoSequencedAppender<TargetDoc, object> CreateAppender(int index)
-    {
-        var binding = new MongoSequenceBinding<TargetDoc>(
-            sequenceCollectionNamespace: _seqNs,
-            sequenceId: SequenceId,
-            targetCollectionNamespace: _targetNs,
-            targetField: new ExpressionFieldDefinition<TargetDoc, long>(x => x.Nested!.Sequence));
-
-        return new MongoSequencedAppender<TargetDoc, object>(
-            _mongoClient,
-            binding,
-            logger: _loggerFactory.CreateLogger($"appender_{index}"));
-    }
-
-    private async Task<long[]> ReadSequenceAsync(CancellationToken ct)
-    {
-        var db = _mongoClient.GetDatabase(_databaseName);
-
-        var collection = db.GetCollection<TargetDoc>(_targetNs.CollectionName);
-
-        var docs = await collection
-            .Find(FilterDefinition<TargetDoc>.Empty)
-            .Sort(Builders<TargetDoc>.Sort.Ascending(x => x.Nested!.Sequence))
-            .ToListAsync(ct);
-
-        return [.. docs.Select(d => d.Nested!.Sequence)];
-    }
-
-    // ReSharper disable all
-    private record TargetDoc
-    {
-        public ObjectId Id { get; init; }
-
-        public required string Value { get; init; }
-
-        public NestedDoc? Nested { get; init; }
-    }
-
-    private record NestedDoc
-    {
-        [BsonElement("seq")]
-        public long Sequence { get; init; }
-    }
-    // ReSharper restore all
 }
