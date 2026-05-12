@@ -11,6 +11,8 @@ public sealed class AppendRequest<TContext>
 
     public AppendRequest(IReadOnlyList<BsonDocument> documents, TContext context)
     {
+        ArgumentNullException.ThrowIfNull(documents);
+
         if (documents.Count == 0)
             throw new ArgumentException("At least one document is required.", nameof(documents));
 
@@ -19,7 +21,7 @@ public sealed class AppendRequest<TContext>
     }
 
     /// <summary>
-    /// Gets the BSON documents to be appended.
+    /// Gets the BSON documents to be appended. Always contains at least one document.
     /// </summary>
     public IReadOnlyList<BsonDocument> Documents { get; }
 

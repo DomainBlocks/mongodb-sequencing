@@ -127,9 +127,9 @@ included in the repository and can be run against your own environment to get re
 Peak throughput measured over 15 seconds after a 3-second warm-up, with each operation appending a single document. The
 following parameters were used:
 
-- **Max in-flight operations:** 1,000 total across all concurrent appender instances
-- **Batch size:** 500 (maximum append operations committed in a single transaction)
-- **Queue capacity:** 1,000 (maximum append operations buffered before callers block)
+- Max in-flight operations: 1,000 total across all concurrent appender instances
+- Batch size: 500 (maximum append operations committed in a single transaction)
+- Queue capacity: 1,000 (maximum append operations buffered before callers block)
 
 | Appender instance count* | Throughput (ops/sec) |
 |-------------------------:|---------------------:|
@@ -144,7 +144,8 @@ counter document, causing more transactions to abort and retry.
 
 Deployments with a multi-node MongoDB cluster will see reduced throughput due to replication overhead, as
 `w: "majority"` write concern requires acknowledgement from a majority of members before a transaction can commit. For
-example, a local 3-node replica set yielded approximately 65,500 ops/sec using the same parameters.
+example, using the same hardware and parameters, a local 3-node replica set with a single appender instance achieved
+approximately 65,500 ops/sec.
 
 ### Latency
 

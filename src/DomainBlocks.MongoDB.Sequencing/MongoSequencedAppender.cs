@@ -55,6 +55,9 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
         MongoSequencedAppenderOptions? options = null,
         ILogger? logger = null)
     {
+        ArgumentNullException.ThrowIfNull(mongoClient);
+        ArgumentNullException.ThrowIfNull(binding);
+
         var serializerRegistry = BsonSerializer.SerializerRegistry;
         var documentSerializer = serializerRegistry.GetSerializer<TDocument>();
 
