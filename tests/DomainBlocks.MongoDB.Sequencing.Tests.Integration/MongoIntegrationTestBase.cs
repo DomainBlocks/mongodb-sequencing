@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public abstract class MongoIntegrationTestBase
+public abstract class MongoIntegrationTestBase(string connectionString)
 {
     private const string TestDbPrefix = "seq_test_";
     protected const string SequenceId = "test_seq";
@@ -20,7 +20,7 @@ public abstract class MongoIntegrationTestBase
     [SetUp]
     public async Task SetUp()
     {
-        MongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
+        MongoClient = new MongoClient(connectionString);
         DatabaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
         SequenceNs = new CollectionNamespace(DatabaseName, "sequences");
         TargetNs = new CollectionNamespace(DatabaseName, "targets");

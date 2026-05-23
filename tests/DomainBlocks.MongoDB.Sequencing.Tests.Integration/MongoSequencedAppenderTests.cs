@@ -3,7 +3,7 @@ using Shouldly;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public class MongoSequencedAppenderTests : MongoIntegrationTestBase
+public class MongoSequencedAppenderTests() : MongoIntegrationTestBase(MongoReplicaSetFixture.ConnectionString)
 {
     private const int TimeoutMillis = 10_000;
 
