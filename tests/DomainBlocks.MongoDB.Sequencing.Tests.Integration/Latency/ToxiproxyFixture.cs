@@ -44,10 +44,11 @@ public sealed class ToxiproxyFixture
 
         var host = _toxiproxyContainer.Hostname;
         var port = _toxiproxyContainer.GetMappedPublicPort(ProxyPort);
+        var serverAddress = new MongoServerAddress(host, port);
 
         var builder = new MongoUrlBuilder(MongoReplicaSetFixture.ConnectionString)
         {
-            Server = new MongoServerAddress(host, port)
+            Server = serverAddress
         };
 
         ConnectionString = builder.ToMongoUrl().ToString();

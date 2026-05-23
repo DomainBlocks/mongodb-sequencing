@@ -1,5 +1,4 @@
-﻿using System.Diagnostics;
-using NUnit.Framework;
+﻿using NUnit.Framework;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
@@ -17,30 +16,12 @@ public class MongoSequencedAppenderBenchmarkTests() : MongoIntegrationTestBase(M
 
         await using var appender = CreateAppender<object>();
 
-        for (var i = 0; i < warmupIterations; i++)
-            await AppendAsync(appender, ct);
-
-        var latencies = new List<double>(iterations);
-
-        for (var i = 0; i < iterations; i++)
-        {
-            var sw = Stopwatch.StartNew();
-            await AppendAsync(appender, ct);
-            sw.Stop();
-            latencies.Add(sw.Elapsed.TotalMilliseconds);
-        }
-
-        var sorted = latencies.OrderBy(x => x).ToList();
-        await TestContext.Out.WriteLineAsync($"p50:  {sorted[Percentile(0.50)]:F1} ms");
-        await TestContext.Out.WriteLineAsync($"p90:  {sorted[Percentile(0.90)]:F1} ms");
-        await TestContext.Out.WriteLineAsync($"p99:  {sorted[Percentile(0.99)]:F1} ms");
-        await TestContext.Out.WriteLineAsync($"min:  {sorted[0]:F1} ms");
-        await TestContext.Out.WriteLineAsync($"max:  {sorted[^1]:F1} ms");
-        await TestContext.Out.WriteLineAsync($"mean: {latencies.Average():F1} ms");
-
-        return;
-
-        int Percentile(double p) => (int)Math.Ceiling(sorted.Count * p) - 1;
+        await LatencyBenchmark.RunAsync(
+            appender,
+            AppendAsync,
+            warmupIterations,
+            iterations,
+            cancellationToken: ct);
     }
 
     [Test]
@@ -58,7 +39,7 @@ public class MongoSequencedAppenderBenchmarkTests() : MongoIntegrationTestBase(M
 
         try
         {
-            await ThroughputMeasurement.RunAsync(
+            await ThroughputBenchmark.RunAsync(
                 appenders,
                 AppendAsync,
                 eventCount,

@@ -3,9 +3,9 @@ using NUnit.Framework;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public static class ThroughputMeasurement
+public static class ThroughputBenchmark
 {
-    internal static async Task RunAsync<TDocument>(
+    public static async Task RunAsync<TDocument>(
         IReadOnlyList<MongoSequencedAppender<TDocument, object>> appenders,
         Func<MongoSequencedAppender<TDocument, object>, CancellationToken, Task> appendFunc,
         int totalOps,

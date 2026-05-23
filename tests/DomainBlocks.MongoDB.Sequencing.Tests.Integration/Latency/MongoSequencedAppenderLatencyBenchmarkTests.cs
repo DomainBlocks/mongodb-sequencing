@@ -10,7 +10,39 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
     [Test]
     [Explicit("Benchmark")]
     [CancelAfter(TimeoutMillis)]
-    public async Task AppendAsync_MeasureThroughputCeiling_UnderLatency(CancellationToken ct)
+    public async Task AppendAsync_SingleAppend_MeasureLatency(CancellationToken ct)
+    {
+        const int warmupIterations = 10;
+        const int iterations = 100;
+        const int latencyMs = 30;
+        const int jitterMs = 5;
+
+        await using var appender = CreateAppender<object>();
+
+        await ToxiproxyFixture.MongoProxy.AddAsync(new LatencyToxic
+        {
+            Name = "mongo-latency",
+            Stream = ToxicDirection.DownStream,
+            Attributes = new LatencyToxic.ToxicAttributes
+            {
+                Latency = latencyMs,
+                Jitter = jitterMs
+            }
+        });
+
+        await LatencyBenchmark.RunAsync(
+            appender,
+            AppendAsync,
+            warmupIterations,
+            iterations,
+            $"latency {latencyMs} ms ± {jitterMs} ms",
+            ct);
+    }
+
+    [Test]
+    [Explicit("Benchmark")]
+    [CancelAfter(TimeoutMillis)]
+    public async Task AppendAsync_MeasureThroughputCeiling(CancellationToken ct)
     {
         const int appenderCount = 1;
         const int eventCount = 10_000;
@@ -22,11 +54,9 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
             .Select(i => CreateAppender<object>(i))
             .ToArray();
 
-        var proxy = ToxiproxyFixture.MongoProxy;
-
-        await proxy.AddAsync(new LatencyToxic
+        await ToxiproxyFixture.MongoProxy.AddAsync(new LatencyToxic
         {
-            Name = "mongo-latency",
+            Name = "mongo-throughput",
             Stream = ToxicDirection.DownStream,
             Attributes = new LatencyToxic.ToxicAttributes
             {
@@ -37,12 +67,9 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
 
         try
         {
-            await ThroughputMeasurement.RunAsync(
+            await ThroughputBenchmark.RunAsync(
                 appenders,
-                (appender, token) => appender.AppendAsync(
-                    [new TargetDoc { Value = "Benchmark" }],
-                    context: new object(),
-                    cancellationToken: token),
+                AppendAsync,
                 eventCount,
                 maxInFlight,
                 $"latency {latencyMs} ms ± {jitterMs} ms",
@@ -53,5 +80,15 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
             foreach (var a in appenders)
                 await a.DisposeAsync();
         }
+    }
+
+    private static Task AppendAsync(
+        MongoSequencedAppender<TargetDoc, object> appender,
+        CancellationToken ct)
+    {
+        return appender.AppendAsync(
+            [new TargetDoc { Value = "Benchmark" }],
+            context: new object(),
+            cancellationToken: ct);
     }
 }
