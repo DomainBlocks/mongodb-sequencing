@@ -27,12 +27,9 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
     private readonly string _sequenceId;
     private readonly string[] _targetFieldPathSegments;
     private readonly IMongoSequencedAppenderPolicy<TContext> _appenderPolicy;
+    private readonly MongoSequencedAppenderOptions _options;
     private readonly ILogger _logger;
     private readonly Channel<AppendRequest<TContext>> _channel;
-    private readonly int _maxBatchSize;
-    private readonly TimeSpan _batchingDelay;
-    private readonly int _maxConflictRetries;
-    private readonly TimeSpan _conflictRetryDelay;
     private readonly CancellationTokenSource _stopCts = new();
     private readonly Task _runAppendLoopTask;
     private readonly Buffers _buffers = new();
@@ -73,8 +70,6 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
         var targetFieldName = binding.TargetField.Render(renderArgs).FieldName;
 #endif
 
-        options ??= new MongoSequencedAppenderOptions();
-
         _mongoClient = mongoClient;
 
         _sequenceCollection = mongoClient
@@ -88,18 +83,14 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
         _sequenceId = binding.SequenceId;
         _targetFieldPathSegments = targetFieldName.Split('.');
         _appenderPolicy = appendPolicy ?? DefaultSequencedAppenderPolicy<TContext>.Shared;
+        _options = options ?? new MongoSequencedAppenderOptions();
         _logger = logger ?? NullLogger.Instance;
 
-        _channel = Channel.CreateBounded<AppendRequest<TContext>>(new BoundedChannelOptions(options.QueueCapacity)
+        _channel = Channel.CreateBounded<AppendRequest<TContext>>(new BoundedChannelOptions(_options.QueueCapacity)
         {
             SingleWriter = false,
             SingleReader = true
         });
-
-        _maxBatchSize = options.MaxBatchSize;
-        _batchingDelay = options.BatchingDelay;
-        _maxConflictRetries = options.MaxConflictRetries;
-        _conflictRetryDelay = options.ConflictRetryDelay;
 
         _runAppendLoopTask = RunAppendLoopAsync(_stopCts.Token);
     }
@@ -149,31 +140,35 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
 
     private async Task RunAppendLoopAsync(CancellationToken ct)
     {
-        var batch = new List<AppendRequest<TContext>>(_maxBatchSize);
+        var maxBatchSize = _options.MaxBatchSize;
+        var batchingDelay = _options.BatchingDelay;
+        var batchingDelayThreshold = _options.BatchingDelayMinCount;
+        var batch = new List<AppendRequest<TContext>>(maxBatchSize);
 
         try
         {
             while (await _channel.Reader.WaitToReadAsync(ct).ConfigureAwait(false))
             {
                 // Drain what's already queued
-                while (batch.Count < _maxBatchSize && _channel.Reader.TryRead(out var request))
+                while (batch.Count < maxBatchSize && _channel.Reader.TryRead(out var request))
                     batch.Add(request);
 
                 // If multiple requests arrived together, more are likely in-flight - wait up to the batching delay for
                 // additional requests to accumulate before committing (Nagle-style coalescing). Short-circuits as soon
-                // as the batch is full. Single requests flush immediately, avoiding unnecessary latency when there is
-                // little or no concurrency.
-                if (_batchingDelay > TimeSpan.Zero && batch.Count > 1 && batch.Count < _maxBatchSize)
+                // as the batch is full.
+                if (batchingDelay > TimeSpan.Zero &&
+                    batch.Count >= batchingDelayThreshold &&
+                    batch.Count < maxBatchSize)
                 {
                     using var delayCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    delayCts.CancelAfter(_batchingDelay);
+                    delayCts.CancelAfter(batchingDelay);
 
                     try
                     {
-                        while (batch.Count < _maxBatchSize &&
+                        while (batch.Count < maxBatchSize &&
                                await _channel.Reader.WaitToReadAsync(delayCts.Token).ConfigureAwait(false))
                         {
-                            while (batch.Count < _maxBatchSize && _channel.Reader.TryRead(out var request))
+                            while (batch.Count < maxBatchSize && _channel.Reader.TryRead(out var request))
                                 batch.Add(request);
                         }
                     }
@@ -189,7 +184,7 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
                 _logger.LogTrace(
                     "Batched {BatchSize}/{MaxBatchSize} requests (~{QueueCount}) queued)",
                     batch.Count,
-                    _maxBatchSize,
+                    maxBatchSize,
                     _channel.Reader.Count);
 
                 try
@@ -360,27 +355,27 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
             throw new UnreachableException($"Unknown conflict resolution type '{resolution.GetType()}'.");
 
         var retryCount = _buffers.ConflictRetryCounts.GetValueOrDefault(requestId);
-        if (retryCount >= _maxConflictRetries)
+        if (retryCount >= _options.MaxConflictRetries)
         {
             _logger.LogWarning(
                 "Conflict not resolved by policy after {MaxRetries} retries; evicting request",
-                _maxConflictRetries);
+                _options.MaxConflictRetries);
 
             CompleteAndRemoveFromBatch(new AppendConflictException(
-                $"Conflict not resolved after {_maxConflictRetries} retries.",
+                $"Conflict not resolved after {_options.MaxConflictRetries} retries.",
                 innerException: appendConflict.OriginatingException));
         }
         else
         {
             _logger.LogDebug(
                 "Conflict not resolved by policy; retrying batch in {RetryDelay} (attempt {Attempt}/{Max})",
-                _conflictRetryDelay,
+                _options.ConflictRetryDelay,
                 retryCount + 1,
-                _maxConflictRetries);
+                _options.MaxConflictRetries);
 
             _buffers.ConflictRetryCounts[requestId] = retryCount + 1;
 
-            await Task.Delay(_conflictRetryDelay, ct).ConfigureAwait(false);
+            await Task.Delay(_options.ConflictRetryDelay, ct).ConfigureAwait(false);
         }
 
         void CompleteAndRemoveFromBatch(Exception exception)

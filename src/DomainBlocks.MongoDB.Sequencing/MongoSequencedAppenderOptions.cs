@@ -22,7 +22,14 @@ public class MongoSequencedAppenderOptions
     /// requests into the same batch (Nagle-style). A single request in the queue is always flushed immediately
     /// regardless of this setting. The default value is <see cref="TimeSpan.Zero"/> (no delay).
     /// </summary>
-    public TimeSpan BatchingDelay { get; set; } = TimeSpan.Zero;
+    public TimeSpan BatchingDelay { get; set; }
+
+    /// <summary>
+    /// Gets or sets the minimum number of requests that must be immediately available upon waking before the
+    /// <see cref="BatchingDelay"/> is applied. Set to 2 or higher to require a minimum number of concurrently available
+    /// requests before delaying. Values less than 2 cause the delay to always apply. The default value is zero.
+    /// </summary>
+    public int BatchingDelayMinCount { get; set; }
 
     /// <summary>
     /// Gets or sets the maximum number of times a conflicting append will be retried before being faulted. The default

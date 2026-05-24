@@ -33,8 +33,14 @@ public class MongoSequencedAppenderBenchmarkTests() : MongoIntegrationTestBase(M
         const int eventCount = 1_000_000;
         const int maxInFlight = 1_000;
 
+        var options = new MongoSequencedAppenderOptions
+        {
+            MaxBatchSize = 1_000,
+            BatchingDelay = TimeSpan.FromMilliseconds(5)
+        };
+
         var appenders = Enumerable.Range(0, appenderCount)
-            .Select(i => CreateAppender<object>(i))
+            .Select(i => CreateAppender<object>(i, options: options))
             .ToArray();
 
         try

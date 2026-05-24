@@ -14,10 +14,16 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
     {
         const int warmupIterations = 10;
         const int iterations = 100;
-        const int latencyMs = 30;
-        const int jitterMs = 5;
+        const int latencyMs = 5;
+        const int jitterMs = 3;
 
-        await using var appender = CreateAppender<object>();
+        var options = new MongoSequencedAppenderOptions
+        {
+            BatchingDelay = TimeSpan.FromMilliseconds(10),
+            BatchingDelayMinCount = 2
+        };
+
+        await using var appender = CreateAppender<object>(options: options);
 
         await ToxiproxyFixture.MongoProxy.AddAsync(new LatencyToxic
         {
@@ -50,8 +56,14 @@ public class MongoSequencedAppenderLatencyBenchmarkTests() : MongoIntegrationTes
         const int latencyMs = 30;
         const int jitterMs = 5;
 
+        var options = new MongoSequencedAppenderOptions
+        {
+            BatchingDelay = TimeSpan.FromMilliseconds(30),
+            BatchingDelayMinCount = 2
+        };
+
         var appenders = Enumerable.Range(0, appenderCount)
-            .Select(i => CreateAppender<object>(i))
+            .Select(i => CreateAppender<object>(i, options: options))
             .ToArray();
 
         await ToxiproxyFixture.MongoProxy.AddAsync(new LatencyToxic

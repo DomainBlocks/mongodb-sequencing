@@ -72,7 +72,8 @@ public abstract class MongoIntegrationTestBase(string connectionString)
 
     protected MongoSequencedAppender<TargetDoc, TContext> CreateAppender<TContext>(
         int index = 0,
-        IMongoSequencedAppenderPolicy<TContext>? policy = null)
+        IMongoSequencedAppenderPolicy<TContext>? policy = null,
+        MongoSequencedAppenderOptions? options = null)
     {
         var binding = new MongoSequenceBinding<TargetDoc>(
             sequenceCollectionNamespace: SequenceNs,
@@ -84,7 +85,8 @@ public abstract class MongoIntegrationTestBase(string connectionString)
             MongoClient,
             binding,
             policy,
-            logger: LoggerFactory.CreateLogger($"appender_{index}"));
+            options,
+            LoggerFactory.CreateLogger($"appender_{index}"));
     }
 
     protected async Task<long[]> ReadSequenceAsync(CancellationToken ct = default)
