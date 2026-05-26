@@ -16,11 +16,15 @@ internal static class MongoSequencedAppender
         WriteConcern.WMajority.With(journal: true));
 
     public static readonly InsertManyOptions InsertManyOptions = new() { IsOrdered = true };
+
+    public static readonly TimeSpan CommitRetryDelay = TimeSpan.FromMilliseconds(100);
 }
 
 /// <inheritdoc/>
 public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequencedAppender<TDocument, TContext>
 {
+    private const int MaxCommitRetries = 3;
+
     private readonly IMongoClient _mongoClient;
     private readonly IMongoCollection<BsonDocument> _sequenceCollection;
     private readonly IMongoCollection<BsonDocument> _targetCollection;
@@ -295,7 +299,7 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
                     .InsertManyAsync(session, docs, MongoSequencedAppender.InsertManyOptions, ct)
                     .ConfigureAwait(false);
 
-                await session.CommitWithRetryAsync(_logger, ct).ConfigureAwait(false);
+                await CommitWithRetryAsync(session, ct).ConfigureAwait(false);
                 return new CommitResult.Success();
             }
             catch (MongoException ex) when (ex.HasErrorLabel(MongoErrorLabels.TransientTransactionError))
@@ -436,6 +440,26 @@ public sealed class MongoSequencedAppender<TDocument, TContext> : IMongoSequence
         }
 
         currentDoc[pathSegments[^1]] = value;
+    }
+
+    private async Task CommitWithRetryAsync(IClientSessionHandle session, CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < MaxCommitRetries; attempt++)
+        {
+            try
+            {
+                await session.CommitTransactionAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            catch (MongoException ex) when (ex.HasErrorLabel(MongoErrorLabels.UnknownTransactionCommitResult))
+            {
+                _logger.LogWarning(ex, "Unknown transaction commit result; retrying");
+                await Task.Delay(MongoSequencedAppender.CommitRetryDelay, cancellationToken).ConfigureAwait(false);
+            }
+        }
+
+        // Final attempt - let it throw
+        await session.CommitTransactionAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async Task SafeAbortTransactionAsync(IClientSessionHandle session, CancellationToken ct)
