@@ -6,7 +6,7 @@ using NUnit.Framework;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public abstract class MongoIntegrationTestBase
+public abstract class MongoIntegrationTestBase(string connectionString)
 {
     private const string TestDbPrefix = "seq_test_";
     protected const string SequenceId = "test_seq";
@@ -20,7 +20,7 @@ public abstract class MongoIntegrationTestBase
     [SetUp]
     public async Task SetUp()
     {
-        MongoClient = new MongoClient(MongoReplicaSetFixture.ConnectionString);
+        MongoClient = new MongoClient(connectionString);
         DatabaseName = $"{TestDbPrefix}{Guid.NewGuid():N}";
         SequenceNs = new CollectionNamespace(DatabaseName, "sequences");
         TargetNs = new CollectionNamespace(DatabaseName, "targets");
@@ -72,7 +72,8 @@ public abstract class MongoIntegrationTestBase
 
     protected MongoSequencedAppender<TargetDoc, TContext> CreateAppender<TContext>(
         int index = 0,
-        IMongoSequencedAppenderPolicy<TContext>? policy = null)
+        IMongoSequencedAppenderPolicy<TContext>? policy = null,
+        MongoSequencedAppenderOptions? options = null)
     {
         var binding = new MongoSequenceBinding<TargetDoc>(
             sequenceCollectionNamespace: SequenceNs,
@@ -84,7 +85,8 @@ public abstract class MongoIntegrationTestBase
             MongoClient,
             binding,
             policy,
-            logger: LoggerFactory.CreateLogger($"appender_{index}"));
+            options,
+            LoggerFactory.CreateLogger($"appender_{index}"));
     }
 
     protected async Task<long[]> ReadSequenceAsync(CancellationToken ct = default)

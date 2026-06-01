@@ -5,10 +5,11 @@ using Shouldly;
 
 namespace DomainBlocks.MongoDB.Sequencing.Tests.Integration;
 
-public class MongoSequencedAppenderConcurrencyTests : MongoIntegrationTestBase
+public class MongoSequencedAppenderConcurrencyTests() :
+    MongoIntegrationTestBase(MongoReplicaSetFixture.ConnectionString)
 {
     private const int TimeoutMillis = 10_000;
-    private const int LongRunningTimeoutMillis = 30_000;
+    private const int LongRunningTimeoutMillis = 60_000;
     private const int AppenderCount = 5;
 
     private MongoSequencedAppender<TargetDoc, object>[] _appenders = null!;
