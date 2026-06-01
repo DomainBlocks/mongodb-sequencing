@@ -9,6 +9,6 @@
 
     <IsPackable>false</IsPackable>
     <PackageId>$(MSBuildProjectName)</PackageId>
-    <PackageVersion>1.0.0-exp.2</PackageVersion>
+    <PackageVersion>1.0.0-rc.2</PackageVersion>
   </PropertyGroup>
 </Project>
