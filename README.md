@@ -128,7 +128,7 @@ Peak throughput measured over 15 seconds after a 3-second warm-up, with each ope
 following parameters were used:
 
 - Max in-flight operations: 1,000 total across all concurrent appender instances
-- Batch size: 500 (maximum append operations committed in a single transaction)
+- Batch size: 1,000 (maximum append operations committed in a single transaction)
 - Queue capacity: 1,000 (maximum append operations buffered before callers block)
 
 | Appender instance count* | Throughput (ops/sec) |
