@@ -133,9 +133,9 @@ following parameters were used:
 
 | Appender instance count* | Throughput (ops/sec) |
 |-------------------------:|---------------------:|
-|                        1 |               94,499 |
-|                        3 |               82,447 |
-|                        5 |               55,624 |
+|                        1 |              105,863 |
+|                        3 |               91,697 |
+|                        5 |               76,439 |
 
 \* Values greater than 1 indicate multiple appender instances issuing append operations concurrently.
 
@@ -156,7 +156,7 @@ operation.
 |-------:|-------------:|
 |    p50 |          1.2 |
 |    p90 |          2.2 |
-|    p99 |          2.7 |
+|    p99 |          2.8 |
 |    min |          0.7 |
-|    max |          4.8 |
+|    max |          6.5 |
 |   mean |          1.4 |
