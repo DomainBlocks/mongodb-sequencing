@@ -143,9 +143,7 @@ Throughput decreases as the number of concurrent appenders increases due to grea
 counter document, causing more transactions to abort and retry.
 
 Deployments with a multi-node MongoDB cluster will see reduced throughput due to replication overhead, as
-`w: "majority"` write concern requires acknowledgement from a majority of members before a transaction can commit. For
-example, using the same hardware and parameters, a local 3-node replica set with a single appender instance achieved
-approximately 65,500 ops/sec.
+`w: "majority"` write concern requires acknowledgement from a majority of members before a transaction can commit.
 
 ### Latency
 
