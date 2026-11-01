@@ -1,5 +1,10 @@
 # DomainBlocks.MongoDB.Sequencing
 
+> **This repository has moved and is archived.** Development continues in
+> [DomainBlocks/domain-blocks](https://github.com/DomainBlocks/domain-blocks/tree/main/src/DomainBlocks.MongoDB.Sequencing),
+> where the code is licensed under AGPL v3. Everything in this repository, and every package version published from it
+> up to and including 1.0.0, remains available under the Apache License 2.0.
+
 A .NET library for appending documents to a MongoDB collection with a contiguous, strictly increasing sequence number -
 guaranteeing total order across historical reads and change stream observations.
 
